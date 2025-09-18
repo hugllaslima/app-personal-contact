@@ -1,0 +1,20 @@
+{
+  "name": "contact-app-frontend",
+  "version": "1.0.0",
+  "description": "Frontend para o gerenciador de contatos pessoais, construído com HTML, CSS e JavaScript puro.",
+  "main": "src/index.html",
+  "scripts": {
+    "start": "echo 'Para iniciar o frontend, use docker-compose up --build -d'",
+    "test": "echo 'Nenhum teste especificado ainda para o frontend estático'",
+    "version": "echo 'Atualizando versão do frontend...'"
+  },
+  "keywords": [
+    "frontend",
+    "html",
+    "css",
+    "javascript",
+    "contatos"
+  ],
+  "author": "Seu Nome/Organização",
+  "license": "MIT"
+}

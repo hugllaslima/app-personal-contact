@@ -1,0 +1,27 @@
+[project]
+name = "contact-app-backend"
+version = "1.0.0"
+description = "Backend Flask para o gerenciador de contatos pessoais."
+readme = "README.md" # Se você tiver um README.md na pasta backend
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Seu Nome/Organização", email = "seu.email@exemplo.com" },
+]
+keywords = ["flask", "backend", "api", "python", "contatos"]
+
+# Para ferramentas de build, como setuptools, poetry, flit, etc.
+# Para um projeto simples como este, não precisamos de uma ferramenta de build complexa,
+# mas esta seção é padrão para indicar a conformidade com PEP 517/621.
+[build-system]
+requires = ["setuptools>=61.0"] # ou ["poetry-core>=1.0.0"] se usar Poetry
+build-backend = "setuptools.build_meta" # ou "poetry.core.masonry.api" se usar Poetry
+
+# Opcional: Se você usar Poetry ou PDM para gerenciar dependências,
+# esta seção seria mais detalhada. Para este exemplo, mantemos simples.
+# As dependências de runtime ainda são instaladas via requirements.txt no Dockerfile.
+# [tool.poetry.dependencies]
+# python = ">=3.9"
+# Flask = "2.3.2"
+# Flask-SQLAlchemy = "3.1.1"
+# ...

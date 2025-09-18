@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13-alpine
+    container_name: contacts_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB} # Referencia a variável do .env
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app: # Este é o serviço do backend
+    build: ./backend
+    container_name: contacts_backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL} # Referencia a variável do .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend: # Serviço para o frontend
+    build: ./frontend
+    container_name: contacts_frontend
+    ports:
+      - "80:80" # Mapeia a porta 80 do host para a porta 80 do contêiner Nginx
+    depends_on:
+      - app # O frontend depende do backend para que o proxy funcione
+
+volumes:
+  db_data:
