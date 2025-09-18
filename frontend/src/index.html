@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Contatos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciador de Contatos Pessoais</h1>
+
+        <div class="form-section">
+            <h2>Adicionar/Editar Contato</h2>
+            <form id="contact-form">
+                <input type="hidden" id="contact-id">
+                <div class="form-group">
+                    <label for="name">Nome:</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Telefone:</label>
+                    <input type="text" id="phone">
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail:</label>
+                    <input type="email" id="email">
+                </div>
+                <button type="submit" id="submit-button">Adicionar Contato</button>
+                <button type="button" id="cancel-edit-button" style="display: none;">Cancelar Edição</button>
+            </form>
+        </div>
+
+        <div class="list-section">
+            <h2>Meus Contatos</h2>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Pesquisar por nome...">
+            </div>
+            <ul id="contact-list">
+                <!-- Contatos serão carregados aqui pelo JavaScript -->
+            </ul>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
