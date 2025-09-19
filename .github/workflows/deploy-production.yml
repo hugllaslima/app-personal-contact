@@ -1,0 +1,89 @@
+
+name: Deploy to Production (AWS EC2/ECR)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    environment: app-task-manager-production
+    runs-on: [self-hosted, production-runner]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push Backend Docker image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Build, tag, and push Frontend Docker image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --build-arg REACT_APP_API_BASE_URL=http://${{ secrets.EC2_HOST }}:5000/api ./frontend
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    - name: Deploy to EC2 instance
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        script: |
+          # Ensure Docker and Docker Compose are installed on EC2
+          # Log in to ECR on the EC2 instance
+          aws configure set default.region ${{ secrets.AWS_REGION }}
+          $(aws ecr get-login --no-include-email --region ${{ secrets.AWS_REGION }})
+
+          # Update docker-compose.yml on EC2 to use latest images from ECR
+          # You would typically have a docker-compose.yml file on your EC2 instance
+          # that references the ECR images. This script pulls the latest.
+          echo "Pulling latest Docker images from ECR..."
+          docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND }}:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND }}:latest
+
+          # Stop and remove old containers, then start new ones
+          # It's recommended to use a proper orchestration tool like ECS/EKS for production
+          # or at least a more robust docker-compose setup on EC2.
+          # For simplicity, here's a direct run example:
+          docker stop todo-frontend todo-backend todo-db || true
+          docker rm todo-frontend todo-backend todo-db || true
+
+          # Start DB (ensure data persistence with a volume mount)
+          docker run -d --name todo-db -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=todoapp -v /path/on/ec2/to/postgres_data:/var/lib/postgresql/data postgres:13-alpine
+
+          # Start Backend
+          docker run -d --name todo-backend -p 5000:5000 --env PORT=5000 --env DATABASE_URL=postgresql://user:password@todo-db:5432/todoapp --env JWT_SECRET=${{ secrets.JWT_SECRET }} --env JWT_EXPIRES_IN=1h --link todo-db:todo-db ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND }}:latest
+
+          # Start Frontend
+          docker run -d --name todo-frontend -p 80:80 --link todo-backend:todo-backend ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND }}:latest
+
+          echo "Deployment to Production environment complete!"
