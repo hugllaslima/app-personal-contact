@@ -1,0 +1,115 @@
+name: Deploy Ambiente de Homologação
+
+on:
+  pull_request:
+    branches:
+    - develop
+
+jobs:
+  deploy-develop:
+    runs-on:  [self-hosted, develop-runner]
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v4
+      with: 
+        fetch-depth: 0   
+
+    - name: Configurar Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+# --- Início das Etapas de Versionamento Automático ---
+
+    - name: Instalar dependências do backend para versionamento
+      run: |
+        cd backend
+        npm install
+
+    - name: Gerar nova versão para o backend
+      run: |
+        cd backend
+        npm run release -- --prerelease develop --skip.tag --no-verify
+        # --prerelease develop: Cria versões de pré-lançamento (ex: 1.0.0-develop.0)
+        # --skip.tag: Evita que o standard-version crie uma tag individual, faremos o push de tags no final
+        # --no-verify: Evita que ganchos de git (pre-commit) impeçam o versionamento
+
+    - name: Instalar dependências do frontend para versionamento
+      run: |
+        cd frontend
+        npm install
+
+    - name: Gerar nova versão para o frontend
+      run: |
+        cd frontend
+        npm run release -- --prerelease develop --skip.tag --no-verify
+
+    - name: Configurar Git para commit de versão
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+
+    - name: Commitar as novas versões e CHANGELOGs
+      run: |
+        git add .
+        # [skip ci] no commit message é CRUCIAL para evitar um loop infinito de workflows
+        git commit -m "chore(release): [skip ci] versionamento automático para develop"
+
+    - name: Push das alterações de versão e tags
+      run: |
+        git push origin develop
+        git push --tags origin develop
+
+# --- Fim das Etapas de Versionamento Automático ---
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Backend Docker image
+      run: |
+        docker build -t todo-backend-develop:latest ./backend
+        
+    - name: Build and push Frontend Docker image
+      run: |
+        docker build -t todo-frontend-develop:latest --build-arg REACT_APP_API_BASE_URL=http://your-proxmox-vm-ip:5000/api ./frontend  
+
+    - name: Parar e remover containers antigos
+      run: |
+        docker stop todo-frontend todo-backend todo-db || true
+        docker rm todo-frontend todo-backend todo-db || true
+
+    - name: Subir novos containers
+      run: |
+        # Usando secrets para as variáveis do PostgreSQL
+        docker run -d --name todo-db \
+          -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
+          -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} \
+          -e POSTGRES_DB=${{ secrets.POSTGRES_DB_DEV }} \
+          -v postgres_data:/var/lib/postgresql/data \
+          postgres:13-alpine
+
+        # Usando secrets para as variáveis do Backend
+        docker run -d --name todo-backend \
+          -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
+          --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
+          --env DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER_DEV }}:${{ secrets.POSTGRES_PASSWORD_DEV }}@todo-db:5432/${{ secrets.POSTGRES_DB_DEV }} \
+          --env JWT_SECRET=${{ secrets.JWT_SECRET_DEV }} \
+          --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_DEV }} \
+          --link todo-db:todo-db \
+          todo-backend-develop:latest
+
+        # O frontend já tem a API_BASE_URL no build-arg, então não precisa passar aqui
+        docker run -d --name todo-frontend -p 80:80 todo-frontend-develop:latest
+          
+        # Mensagem após todos os containers serem iniciados
+        echo "Deployment to Develop environment complete!"
+
+    - name: Remover imagens antigas
+      run: |
+        docker rmi todo-backend-develop:latest todo-frontend-develop:latest || true
+
+    - name: Verificação de status das imagens Docker
+      run: |
+        docker ps -a
+        echo "Deployment para o ambiente Develop concluído com sucesso!"
