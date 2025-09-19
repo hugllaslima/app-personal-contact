@@ -5,7 +5,7 @@ services:
     image: postgres:13-alpine
     container_name: contacts_db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB} # Referencia a variável do .env
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
@@ -22,7 +22,7 @@ services:
     build: ./backend
     container_name: contacts_backend
     environment:
-      DATABASE_URL: ${DATABASE_URL} # Referencia a variável do .env
+      DATABASE_URL: ${DATABASE_URL} 
     depends_on:
       db:
         condition: service_healthy
