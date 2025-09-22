@@ -2,8 +2,6 @@
 
 Uma aplicação web completa para gerenciar seus contatos pessoais, construída com uma arquitetura moderna de microserviços utilizando Flask, PostgreSQL e Nginx.
 
-![Gerenciador de Contatos](https://via.placeholder.com/800x400?text=Gerenciador+de+Contatos+Pessoais)
-
 ## 📋 Sobre o Projeto
 
 Este projeto é um gerenciador de contatos pessoais que permite:
@@ -150,7 +148,7 @@ Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para m
 
 ## 👨‍💻 Autor
 
-Desenvolvido por [Seu Nome/Organização]
+Desenvolvido por Hugllas Lima
 
 ---
 
