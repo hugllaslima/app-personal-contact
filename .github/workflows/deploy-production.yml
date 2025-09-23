@@ -2,9 +2,9 @@
 name: Deploy to Production (AWS EC2/ECR)
 
 on:
-  push:
+  pull_request:
     branches:
-      - main
+    - main
 
 jobs:
   build-and-deploy:
