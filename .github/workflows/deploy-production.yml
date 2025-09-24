@@ -1,4 +1,4 @@
-name: Deploy to Production (AWS EC2/ECR)
+name: Deploy Ambiente de Produção
 
 on:
   pull_request:
