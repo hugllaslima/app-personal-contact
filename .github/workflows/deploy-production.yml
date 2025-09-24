@@ -1,4 +1,3 @@
-
 name: Deploy to Production (AWS EC2/ECR)
 
 on:
