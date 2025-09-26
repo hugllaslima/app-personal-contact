@@ -72,7 +72,7 @@ jobs:
         
     - name: Build and push Frontend Docker image
       run: |
-        docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://your-proxmox-vm-ip:5000/api ./frontend  
+        docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api ./frontend
 
     - name: Parar e remover containers antigos
       run: |
