@@ -1,0 +1,96 @@
+# Arquivos de ambiente e configuração
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.venv
+venv/
+ENV/
+
+# JavaScript/Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnpm-debug.log
+.npm
+.yarn-integrity
+.eslintcache
+.parcel-cache
+.cache/
+.next/
+out/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.DS_Store
+.idea/
+.vscode/
+*.sublime-workspace
+*.swp
+*.swo
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Arquivos de log
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de build e distribuição
+/dist/
+/build/
+/out/
+/coverage/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Arquivos temporários
+*.tmp
+*.temp
+.temp/
+tmp/
