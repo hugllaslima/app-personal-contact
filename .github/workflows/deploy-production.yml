@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    environment: app-task-manager-production
+    environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
 
     steps:
