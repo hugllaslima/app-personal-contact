@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  app: # Este é o serviço do backend
+  app: 
     build: ./backend
     container_name: contacts_backend
     environment:
@@ -27,13 +27,13 @@ services:
       db:
         condition: service_healthy
 
-  frontend: # Serviço para o frontend
+  frontend: 
     build: ./frontend
     container_name: contacts_frontend
     ports:
-      - "80:80" # Mapeia a porta 80 do host para a porta 80 do contêiner Nginx
+      - "80:80" 
     depends_on:
-      - app # O frontend depende do backend para que o proxy funcione
+      - app 
 
 volumes:
   db_data:

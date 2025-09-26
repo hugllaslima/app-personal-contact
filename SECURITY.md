@@ -50,4 +50,4 @@ As atualizações de segurança são publicadas nos releases do projeto e docume
 
 ---
 
-Agradedeço sua contribuição para manter este projeto seguro!
+Agradeço sua contribuição para manter este projeto seguro!
