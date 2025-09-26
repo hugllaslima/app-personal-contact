@@ -3,11 +3,12 @@ name: Deploy Ambiente de Produção
 on:
   pull_request:
     branches:
-    - develop
+    - main
+
 
 jobs:
   build-and-deploy:
-    environment: app-task-manager-production
+    environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
 
     steps:
