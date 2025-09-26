@@ -1,4 +1,4 @@
-name: Deploy Ambiente de Homologação
+name: Deploy Para Ambiente de Homologação 
 
 on:
   pull_request:
