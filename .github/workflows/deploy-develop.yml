@@ -21,13 +21,13 @@ jobs:
       with: 
         fetch-depth: 0
         clean: true
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.PAT_TOKEN }}
 
     - name: Configurar Git para versionamento
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions Bot"
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
         echo "✅ Git configurado para versionamento"
 
     - name: Configurar branch local corretamente
@@ -171,14 +171,13 @@ jobs:
         echo "Branch do PR: $BRANCH_NAME"
         
         # Verificar se há commits para fazer push
-        if git status --porcelain | grep -q .; then
-          echo "⚠️ Ainda há arquivos não commitados"
-          git status
+        if git log --oneline -1 --grep="chore(release)" > /dev/null 2>&1; then
+          echo "✅ Commit de versionamento encontrado, fazendo push..."
+          git push origin "$BRANCH_NAME"
+          echo "✅ Alterações enviadas para $BRANCH_NAME"
+        else
+          echo "ℹ️ Nenhum commit de versionamento para fazer push"
         fi
-        
-        # Fazer push
-        git push origin "$BRANCH_NAME"
-        echo "✅ Alterações enviadas para $BRANCH_NAME"
 
     # --- Build e Deploy Docker ---
     - name: Set up Docker Buildx
