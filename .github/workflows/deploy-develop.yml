@@ -29,6 +29,23 @@ jobs:
         git config --global user.name "GitHub Actions Bot"
         git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
+    - name: Configurar branch local corretamente
+      run: |
+        echo "🔧 Configurando branch local..."
+        BRANCH_NAME="${{ github.head_ref }}"
+        echo "Branch do PR: $BRANCH_NAME"
+        
+        # Fetch todas as branches
+        git fetch origin
+        
+        # Checkout para a branch do PR
+        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
+        
+        # Configurar upstream
+        git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
+        
+        echo "✅ Branch $BRANCH_NAME configurada"
+
     - name: Determinar tipo de versionamento baseado na branch
       id: version-type
       run: |
@@ -139,33 +156,29 @@ jobs:
           - Tipo: ${{ steps.version-type.outputs.type }}
           - Branch: ${{ github.head_ref }}
           "
+          echo "✅ Alterações commitadas"
+        else
+          echo "ℹ️ Nenhuma alteração para commitar"
         fi
 
-    - name: Push das alterações com merge para develop
+    - name: Push das alterações para a branch do PR
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
+        echo "📤 Fazendo push para a branch: $BRANCH_NAME"
         
-        # Push para a branch do PR
+        # Push apenas para a branch do PR (REMOVIDO O MERGE AUTOMÁTICO)
         git push origin "$BRANCH_NAME"
         
-        # Get versions para o commit final
         FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
         BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
         
-        # Merge para develop
-        git fetch origin develop
-        git checkout develop  
-        git pull origin develop
-        git merge "$BRANCH_NAME" --no-ff -m "feat(release): 🚀 ${{ steps.version-type.outputs.description }} | Frontend: ${FRONTEND_VERSION} | Backend: ${BACKEND_VERSION}
-
-        📦 Deploy automático para homologação
-        - Frontend: ${FRONTEND_VERSION}
-        - Backend: ${BACKEND_VERSION}  
-        - Tipo: ${{ steps.version-type.outputs.type }}
-        - Branch: ${BRANCH_NAME}
-        "
-        
-        git push origin develop
+        echo "✅ Versionamento concluído:"
+        echo "   - Frontend: $FRONTEND_VERSION"
+        echo "   - Backend: $BACKEND_VERSION"
+        echo "   - Tipo: ${{ steps.version-type.outputs.description }}"
+        echo ""
+        echo "🔄 Próximo passo: Faça o merge do PR manualmente no GitHub"
+        echo "🎯 As versões aparecerão automaticamente na branch develop após o merge"
 
     # --- DOCKER BUILD E DEPLOY ---
     - name: Set up Docker Buildx
@@ -231,6 +244,11 @@ jobs:
         echo "   Frontend: $FRONTEND_VERSION"
         echo "   Backend: $BACKEND_VERSION"
         echo "   Tipo: ${{ steps.version-type.outputs.description }}"
+        echo ""
+        echo "🔄 Próximos passos:"
+        echo "   1. ✅ Testar a aplicação no ambiente de homologação"
+        echo "   2. ✅ Fazer o merge manual do PR no GitHub"
+        echo "   3. ✅ As versões irão automaticamente para a branch develop"
 
     - name: Limpeza
       run: |
