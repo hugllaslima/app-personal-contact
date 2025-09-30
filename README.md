@@ -73,6 +73,22 @@ O projeto segue uma arquitetura de três camadas:
    - Frontend: http://localhost
    - API: http://localhost/api/contacts
 
+## 📚 Variáveis 
+
+O “JWT_SECRET” é uma chave secreta usada para "assinar" e verificar os tokens JWT (JSON Web Token). É como uma senha que apenas o seu backend conhece.Abaixo seguem dois comandos para que os valores devam ser gerados em seu desktop, assim, utilizando o valor gerado em sua maquina, no “secrets”. Caso esteja utilizando Linux ou Windows “com Python”, abaixo segue os dois modos para gerar o valor para se utilizar nesta variável
+
+Método 1: Com OpenSSL (mais comum no Linux)
+```
+echo "JWT_SECRET_DEV: $(openssl rand -hex 64)"
+echo "JWT_SECRET_PROD: $(openssl rand -hex 64)"
+```
+
+Método 2: Com Python (geralmente já vem instalado)
+```
+$ echo "JWT_SECRET_DEV: $(python3 -c "import secrets; print(secrets.token_hex(64))")"
+$ echo "JWT_SECRET_PROD: $(python3 -c "import secrets; print(secrets.token_hex(64))")"
+```
+
 ## 📚 API Endpoints
 
 | Método | Endpoint | Descrição |

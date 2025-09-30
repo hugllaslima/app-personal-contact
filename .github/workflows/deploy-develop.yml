@@ -1,4 +1,4 @@
-name: Deploy Para Ambiente de Homologação 
+name: Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
@@ -7,43 +7,93 @@ on:
 
 jobs:
   deploy-develop:
-    runs-on:  [self-hosted, develop-runner]
+    runs-on: [self-hosted, develop-runner]
 
     steps:
+    - name: Limpar workspace do self-hosted runner
+      run: |
+        echo "🧹 Limpando workspace anterior..."
+        pwd
+        rm -rf ./* ./.* 2>/dev/null || true
+        echo "✅ Workspace limpo"
+        
     - name: Checkout do código
       uses: actions/checkout@v4
       with: 
-        fetch-depth: 0   
+        fetch-depth: 0
+        clean: true
+
+    - name: Verificar estrutura do projeto
+      run: |
+        echo "📂 Verificando estrutura do projeto..."
+        ls -la
+        echo ""
+        echo "📁 Backend directory (Python):"
+        ls -la backend/
+        echo ""
+        echo "📁 Frontend directory (Node.js):"  
+        ls -la frontend/
+        echo "✅ Estrutura verificada com sucesso"
+
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
     - name: Configurar Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
-# --- Início das Etapas de Versionamento Automático ---
+    # --- Início das Etapas de Versionamento Automático ---
 
-    - name: Instalar dependências do backend para versionamento
+    # BACKEND PYTHON - Instalar dependências
+    - name: Instalar dependências do backend Python
+      working-directory: ./backend
       run: |
-        cd backend
-        npm install
+        python -m pip install --upgrade pip
+        # Ajuste conforme seu projeto:
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        elif [ -f "pyproject.toml" ]; then
+          pip install .
+        fi
 
-    - name: Gerar nova versão para o backend
+    # BACKEND PYTHON - Versionamento (vamos deixar comentado por enquanto)
+    - name: Gerar nova versão para o backend Python
+      working-directory: ./backend
       run: |
-        cd backend
-        npm run release -- --prerelease develop --skip.tag --no-verify
-        # --prerelease develop: Cria versões de pré-lançamento (ex: 1.0.0-develop.0)
-        # --skip.tag: Evita que o standard-version crie uma tag individual, faremos o push de tags no final
-        # --no-verify: Evita que ganchos de git (pre-commit) impeçam o versionamento
+        echo "⚠️  Versionamento Python ainda não configurado"
+        echo "Configure conforme sua ferramenta (poetry, bump2version, etc.)"
 
+    # FRONTEND NODE.JS - Instalar dependências
     - name: Instalar dependências do frontend para versionamento
+      working-directory: ./frontend
+      run: npm install
+
+    # FRONTEND - Instalar standard-version se não estiver no package.json
+    - name: Verificar e instalar standard-version no frontend
+      working-directory: ./frontend
       run: |
-        cd frontend
-        npm install
+        if ! npm list standard-version > /dev/null 2>&1; then
+          echo "📦 Instalando standard-version..."
+          npm install --save-dev standard-version
+        else
+          echo "✅ standard-version já está instalado"
+        fi
+
+    # FRONTEND - Verificar se script release existe, se não, criá-lo
+    - name: Configurar script de release no frontend
+      working-directory: ./frontend
+      run: |
+        if ! npm run release --silent 2>/dev/null; then
+          echo "📝 Adicionando script release ao package.json..."
+          npm pkg set scripts.release="standard-version"
+        fi
 
     - name: Gerar nova versão para o frontend
-      run: |
-        cd frontend
-        npm run release -- --prerelease develop --skip.tag --no-verify
+      working-directory: ./frontend
+      run: npm run release -- --prerelease develop --skip.tag --no-verify
 
     - name: Configurar Git para commit de versão
       run: |
@@ -53,7 +103,6 @@ jobs:
     - name: Commitar as novas versões e CHANGELOGs
       run: |
         git add .
-        # [skip ci] no commit message é CRUCIAL para evitar um loop infinito de workflows
         git commit -m "chore(release): [skip ci] versionamento automático para develop"
 
     - name: Push das alterações de versão e tags
@@ -61,16 +110,16 @@ jobs:
         git push origin develop
         git push --tags origin develop
 
-# --- Fim das Etapas de Versionamento Automático ---
+    # --- Fim das Etapas de Versionamento Automático ---
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Backend Docker image
+    - name: Build and push Backend Docker image (Python)
       run: |
         docker build -t contacts-backend-homolog:latest ./backend
-        
-    - name: Build and push Frontend Docker image
+         
+    - name: Build and push Frontend Docker image (Node.js)
       run: |
         docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api ./frontend
 
@@ -81,7 +130,7 @@ jobs:
 
     - name: Subir novos containers
       run: |
-        # Usando secrets para as variáveis do PostgreSQL
+        # PostgreSQL
         docker run -d --name contacts-db-homolog \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
           -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} \
@@ -89,7 +138,7 @@ jobs:
           -v contacts_data_homolog:/var/lib/postgresql/data \
           postgres:13-alpine
 
-        # Usando secrets para as variáveis do Backend
+        # Backend Python
         docker run -d --name contacts-backend-homolog \
           -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
           --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
@@ -99,11 +148,10 @@ jobs:
           --link contacts-db-homolog:contacts-db-homolog \
           contacts-backend-homolog:latest
 
-        # O frontend já tem a API_BASE_URL no build-arg, então não precisa passar aqui
+        # Frontend Node.js
         docker run -d --name contacts-frontend-homolog -p 80:80 contacts-frontend-homolog:latest
-          
-        # Mensagem após todos os containers serem iniciados
-        echo "Deployment para o ambiente de Homologação concluído!"
+         
+        echo "🚀 Deployment para o ambiente de Homologação concluído!"
 
     - name: Remover imagens antigas
       run: |
@@ -111,5 +159,7 @@ jobs:
 
     - name: Verificação de status das imagens Docker
       run: |
+        echo "📊 Status dos containers:"
         docker ps -a
-        echo "Deployment para o ambiente de Homologação concluído com sucesso!"
+        echo ""
+        echo "🎉 Deployment para o ambiente de Homologação concluído com sucesso!"
