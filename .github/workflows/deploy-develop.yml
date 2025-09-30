@@ -10,7 +10,6 @@ jobs:
     runs-on: [self-hosted, develop-runner]
 
     steps:
-    # --- Início da Limpeza do Workspace ---
     - name: Limpar workspace do self-hosted runner
       run: |
         echo "🧹 Limpando workspace anterior..."
@@ -29,14 +28,20 @@ jobs:
         echo "📂 Verificando estrutura do projeto..."
         ls -la
         echo ""
-        echo "📁 Backend directory:"
+        echo "📁 Backend directory (Python):"
         ls -la backend/
         echo ""
-        echo "📁 Frontend directory:"  
+        echo "📁 Frontend directory (Node.js):"  
         ls -la frontend/
         echo "✅ Estrutura verificada com sucesso"
-    # --- Fim da Limpeza do Workspace ---
 
+    # CONFIGURAR PYTHON PARA O BACKEND
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'  # ou a versão que você usa
+
+    # CONFIGURAR NODE.JS PARA O FRONTEND
     - name: Configurar Node.js
       uses: actions/setup-node@v3
       with:
@@ -44,18 +49,28 @@ jobs:
 
     # --- Início das Etapas de Versionamento Automático ---
 
-    - name: Instalar dependências do backend para versionamento
-      working-directory: ./backend
-      run: npm install
-
-    - name: Gerar nova versão para o backend
+    # BACKEND PYTHON - Instalar dependências
+    - name: Instalar dependências do backend Python
       working-directory: ./backend
       run: |
-        npm run release -- --prerelease develop --skip.tag --no-verify
-        # --prerelease develop: Cria versões de pré-lançamento (ex: 1.0.0-develop.0)
-        # --skip.tag: Evita que o standard-version crie uma tag individual, faremos o push de tags no final
-        # --no-verify: Evita que ganchos de git (pre-commit) impeçam o versionamento
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt  # ou: pip install .
 
+    # BACKEND PYTHON - Versionamento (se você usar uma ferramenta como bump2version)
+    - name: Gerar nova versão para o backend Python
+      working-directory: ./backend
+      run: |
+        # Se você usar bump2version ou similar:
+        # pip install bump2version
+        # bump2version --current-version $(grep version pyproject.toml | cut -d'"' -f2) patch --allow-dirty
+        # 
+        # Ou se usar poetry:
+        # poetry version prerelease
+        #
+        # Por enquanto, vou comentar até você definir a ferramenta:
+        echo "Versionamento Python - configure conforme sua ferramenta"
+
+    # FRONTEND NODE.JS - Continua igual
     - name: Instalar dependências do frontend para versionamento
       working-directory: ./frontend
       run: npm install
@@ -72,7 +87,6 @@ jobs:
     - name: Commitar as novas versões e CHANGELOGs
       run: |
         git add .
-        # [skip ci] no commit message é CRUCIAL para evitar um loop infinito de workflows
         git commit -m "chore(release): [skip ci] versionamento automático para develop"
 
     - name: Push das alterações de versão e tags
@@ -85,11 +99,11 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Backend Docker image
+    - name: Build and push Backend Docker image (Python)
       run: |
         docker build -t contacts-backend-homolog:latest ./backend
          
-    - name: Build and push Frontend Docker image
+    - name: Build and push Frontend Docker image (Node.js)
       run: |
         docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api ./frontend
 
@@ -108,7 +122,7 @@ jobs:
           -v contacts_data_homolog:/var/lib/postgresql/data \
           postgres:13-alpine
 
-        # Usando secrets para as variáveis do Backend
+        # Usando secrets para as variáveis do Backend Python
         docker run -d --name contacts-backend-homolog \
           -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
           --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
@@ -118,10 +132,9 @@ jobs:
           --link contacts-db-homolog:contacts-db-homolog \
           contacts-backend-homolog:latest
 
-        # O frontend já tem a API_BASE_URL no build-arg, então não precisa passar aqui
+        # Frontend Node.js
         docker run -d --name contacts-frontend-homolog -p 80:80 contacts-frontend-homolog:latest
          
-        # Mensagem após todos os containers serem iniciados
         echo "🚀 Deployment para o ambiente de Homologação concluído!"
 
     - name: Remover imagens antigas
