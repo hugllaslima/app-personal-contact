@@ -226,7 +226,7 @@ jobs:
         echo "🚀 Subindo ambiente de homologação..."
         
         # PostgreSQL
-        docker run -d --name contacts-db-homolog \
+        docker run --restart unless-stopped -d --name contacts-db-homolog \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
           -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} \
           -e POSTGRES_DB=${{ secrets.POSTGRES_DB_DEV }} \
@@ -237,7 +237,7 @@ jobs:
         sleep 15
 
         # Backend Python
-        docker run -d --name contacts-backend-homolog \
+        docker run --restart unless-stopped -d --name contacts-backend-homolog \
           -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
           --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
           --env DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER_DEV }}:${{ secrets.POSTGRES_PASSWORD_DEV }}@contacts-db-homolog:5432/${{ secrets.POSTGRES_DB_DEV }} \
@@ -247,7 +247,7 @@ jobs:
           contacts-backend-homolog:latest
 
         # Frontend React - ADICIONAR LINK PARA O BACKEND
-        docker run -d --name contacts-frontend-homolog \
+        docker run --restart unless-stopped -d --name contacts-frontend-homolog \
           -p 80:80 \
           --link contacts-backend-homolog:app \
           contacts-frontend-homolog:latest
