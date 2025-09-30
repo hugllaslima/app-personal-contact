@@ -35,13 +35,11 @@ jobs:
         ls -la frontend/
         echo "✅ Estrutura verificada com sucesso"
 
-    # CONFIGURAR PYTHON PARA O BACKEND
     - name: Configurar Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'  # ou a versão que você usa
+        python-version: '3.11'
 
-    # CONFIGURAR NODE.JS PARA O FRONTEND
     - name: Configurar Node.js
       uses: actions/setup-node@v3
       with:
@@ -54,26 +52,44 @@ jobs:
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt  # ou: pip install .
+        # Ajuste conforme seu projeto:
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        elif [ -f "pyproject.toml" ]; then
+          pip install .
+        fi
 
-    # BACKEND PYTHON - Versionamento (se você usar uma ferramenta como bump2version)
+    # BACKEND PYTHON - Versionamento (vamos deixar comentado por enquanto)
     - name: Gerar nova versão para o backend Python
       working-directory: ./backend
       run: |
-        # Se você usar bump2version ou similar:
-        # pip install bump2version
-        # bump2version --current-version $(grep version pyproject.toml | cut -d'"' -f2) patch --allow-dirty
-        # 
-        # Ou se usar poetry:
-        # poetry version prerelease
-        #
-        # Por enquanto, vou comentar até você definir a ferramenta:
-        echo "Versionamento Python - configure conforme sua ferramenta"
+        echo "⚠️  Versionamento Python ainda não configurado"
+        echo "Configure conforme sua ferramenta (poetry, bump2version, etc.)"
 
-    # FRONTEND NODE.JS - Continua igual
+    # FRONTEND NODE.JS - Instalar dependências
     - name: Instalar dependências do frontend para versionamento
       working-directory: ./frontend
       run: npm install
+
+    # FRONTEND - Instalar standard-version se não estiver no package.json
+    - name: Verificar e instalar standard-version no frontend
+      working-directory: ./frontend
+      run: |
+        if ! npm list standard-version > /dev/null 2>&1; then
+          echo "📦 Instalando standard-version..."
+          npm install --save-dev standard-version
+        else
+          echo "✅ standard-version já está instalado"
+        fi
+
+    # FRONTEND - Verificar se script release existe, se não, criá-lo
+    - name: Configurar script de release no frontend
+      working-directory: ./frontend
+      run: |
+        if ! npm run release --silent 2>/dev/null; then
+          echo "📝 Adicionando script release ao package.json..."
+          npm pkg set scripts.release="standard-version"
+        fi
 
     - name: Gerar nova versão para o frontend
       working-directory: ./frontend
@@ -114,7 +130,7 @@ jobs:
 
     - name: Subir novos containers
       run: |
-        # Usando secrets para as variáveis do PostgreSQL
+        # PostgreSQL
         docker run -d --name contacts-db-homolog \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
           -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} \
@@ -122,7 +138,7 @@ jobs:
           -v contacts_data_homolog:/var/lib/postgresql/data \
           postgres:13-alpine
 
-        # Usando secrets para as variáveis do Backend Python
+        # Backend Python
         docker run -d --name contacts-backend-homolog \
           -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
           --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
