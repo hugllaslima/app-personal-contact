@@ -23,9 +23,8 @@ jobs:
 # --- Início das Etapas de Versionamento Automático ---
 
     - name: Instalar dependências do backend para versionamento
-      run: |
-        cd backend
-        npm install
+      working-directory: ./backend
+      run: npm install
 
     - name: Gerar nova versão para o backend
       run: |
