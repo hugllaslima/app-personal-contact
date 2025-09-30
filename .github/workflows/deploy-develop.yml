@@ -170,14 +170,17 @@ jobs:
         echo "📤 Fazendo push das alterações..."
         BRANCH_NAME="${{ github.head_ref }}"
         echo "Branch do PR: $BRANCH_NAME"
-        
-        # Verificar se há commits para fazer push
-        if git log --oneline -1 --grep="chore(release)" > /dev/null 2>&1; then
-          echo "✅ Commit de versionamento encontrado, fazendo push..."
-          git push origin "$BRANCH_NAME"
-          echo "✅ Alterações enviadas para $BRANCH_NAME"
-        else
-          echo "ℹ️ Nenhum commit de versionamento para fazer push"
+    
+        # Push para a branch do PR
+        git push origin "$BRANCH_NAME"
+    
+        # TAMBÉM fazer push para develop (se for ambiente de develop)
+        if [[ "${{ github.base_ref }}" == "develop" ]]; then
+          echo "📤 Fazendo push para develop também..."
+          git fetch origin develop
+          git checkout develop
+          git merge "$BRANCH_NAME" --no-ff
+          git push origin develop
         fi
 
     # --- Build e Deploy Docker ---

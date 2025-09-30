@@ -1,6 +1,6 @@
 {
   "name": "contact-app-frontend",
-  "version": "1.0.1-develop.1",
+  "version": "1.0.1-develop.2",
   "description": "Frontend para o gerenciador de contatos pessoais, construído com HTML, CSS e JavaScript puro.",
   "main": "src/index.html",
   "scripts": {
