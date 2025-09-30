@@ -30,6 +30,23 @@ jobs:
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         echo "✅ Git configurado para versionamento"
 
+    - name: Configurar branch local corretamente
+      run: |
+        echo "🔧 Configurando branch local..."
+        BRANCH_NAME="${{ github.head_ref }}"
+        echo "Branch do PR: $BRANCH_NAME"
+        
+        # Fetch todas as branches
+        git fetch origin
+        
+        # Checkout para a branch do PR se não estivermos nela
+        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
+        
+        # Configurar upstream
+        git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
+        
+        echo "✅ Branch $BRANCH_NAME configurada"
+
     - name: Verificar estrutura do projeto
       run: |
         echo "📂 Verificando estrutura do projeto..."
@@ -119,7 +136,8 @@ jobs:
       working-directory: ./backend
       run: |
         echo "📋 Gerando nova versão do backend..."
-        bump2version --current-version $(grep 'version = ' pyproject.toml | cut -d'"' -f2) patch --allow-dirty
+        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2)
+        bump2version --current-version "$CURRENT_VERSION" patch --allow-dirty
         echo "✅ Versão do backend atualizada"
 
     # --- Commit e Push das Alterações ---
@@ -133,10 +151,13 @@ jobs:
       run: |
         git add .
         if ! git diff --cached --quiet; then
+          FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
+          BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 2>/dev/null || echo 'N/A')
+          
           git commit -m "chore(release): [skip ci] versionamento automático para develop
 
-          - Frontend: $(cd frontend && node -p "require('./package.json').version")
-          - Backend: $(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2)
+          - Frontend: $FRONTEND_VERSION
+          - Backend: $BACKEND_VERSION
           "
           echo "✅ Alterações commitadas"
         else
@@ -146,11 +167,18 @@ jobs:
     - name: Push das alterações para o repositório
       run: |
         echo "📤 Fazendo push das alterações..."
-        CURRENT_BRANCH="${{ github.head_ref }}"
-        echo "Branch do PR: $CURRENT_BRANCH"
+        BRANCH_NAME="${{ github.head_ref }}"
+        echo "Branch do PR: $BRANCH_NAME"
         
-        git push origin "$CURRENT_BRANCH"
-        echo "✅ Alterações enviadas para $CURRENT_BRANCH"
+        # Verificar se há commits para fazer push
+        if git status --porcelain | grep -q .; then
+          echo "⚠️ Ainda há arquivos não commitados"
+          git status
+        fi
+        
+        # Fazer push
+        git push origin "$BRANCH_NAME"
+        echo "✅ Alterações enviadas para $BRANCH_NAME"
 
     # --- Build e Deploy Docker ---
     - name: Set up Docker Buildx
