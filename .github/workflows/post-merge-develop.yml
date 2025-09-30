@@ -1,0 +1,24 @@
+name: Post-Merge Develop
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  update-version-summary:
+    runs-on: [self-hosted, develop-runner]
+    if: contains(github.event.head_commit.message, 'Merge pull request') || contains(github.event.head_commit.message, 'Merge branch')
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Criar resumo de versões na develop
+      run: |
+        FRONTEND_VERSION=$(cat frontend/package.json | grep '"version"' | cut -d'"' -f4 2>/dev/null || echo 'N/A')
+        BACKEND_VERSION=$(cat backend/pyproject.toml | grep 'version = ' | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
+        
+        echo "📋 Versões atuais na branch develop:"
+        echo "   Frontend: $FRONTEND_VERSION"
+        echo "   Backend: $BACKEND_VERSION"
+        echo "   Deploy: $(date)"
