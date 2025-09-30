@@ -6,7 +6,8 @@ on:
     - develop
 
 jobs:
-  deploy-develop:
+  build-and-deploy:
+    environment: app-personal-contact-develop
     runs-on: [self-hosted, develop-runner]
 
     steps:
