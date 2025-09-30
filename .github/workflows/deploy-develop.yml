@@ -35,6 +35,13 @@ jobs:
         ls -la frontend/
         echo "✅ Estrutura verificada com sucesso"
 
+    # CONFIGURAR GIT LOGO NO INÍCIO (ANTES DE QUALQUER VERSIONAMENTO)
+    - name: Configurar Git para versionamento
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+        echo "✅ Git configurado para versionamento"
+
     - name: Configurar Python
       uses: actions/setup-python@v4
       with:
@@ -59,7 +66,7 @@ jobs:
           pip install .
         fi
 
-    # BACKEND PYTHON - Versionamento (vamos deixar comentado por enquanto)
+    # BACKEND PYTHON - Versionamento (comentado por enquanto)
     - name: Gerar nova versão para o backend Python
       working-directory: ./backend
       run: |
@@ -82,7 +89,7 @@ jobs:
           echo "✅ standard-version já está instalado"
         fi
 
-    # FRONTEND - Verificar se script release existe, se não, criá-lo
+    # FRONTEND - Verificar se script release existe
     - name: Configurar script de release no frontend
       working-directory: ./frontend
       run: |
@@ -95,15 +102,21 @@ jobs:
       working-directory: ./frontend
       run: npm run release -- --prerelease develop --skip.tag --no-verify
 
-    - name: Configurar Git para commit de versão
-      run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions"
+    # REMOVER ESTA SEÇÃO (já foi movida para cima):
+    # - name: Configurar Git para commit de versão
+    #   run: |
+    #     git config --global user.email "actions@github.com"
+    #     git config --global user.name "GitHub Actions"
 
-    - name: Commitar as novas versões e CHANGELOGs
+    - name: Commitar versões adicionais se necessário
       run: |
+        # Adicionar qualquer arquivo que não tenha sido commitado pelo standard-version
         git add .
-        git commit -m "chore(release): [skip ci] versionamento automático para develop"
+        if ! git diff --cached --quiet; then
+          git commit -m "chore(release): [skip ci] versionamento automático adicional para develop"
+        else
+          echo "✅ Nenhum arquivo adicional para commitar"
+        fi
 
     - name: Push das alterações de versão e tags
       run: |
