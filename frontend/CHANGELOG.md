@@ -4,8 +4,6 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### 1.0.1-develop.10 (2025-09-30)
 
-### 1.0.1-develop.9 (2025-09-30)
-
 ### 1.0.1-develop.8 (2025-09-30)
 
 ### 1.0.1-develop.7 (2025-09-30)
