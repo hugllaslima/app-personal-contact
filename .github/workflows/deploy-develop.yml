@@ -169,17 +169,33 @@ jobs:
       run: |
         echo "📤 Fazendo push das alterações..."
         BRANCH_NAME="${{ github.head_ref }}"
-        echo "Branch do PR: $BRANCH_NAME"
     
         # Push para a branch do PR
         git push origin "$BRANCH_NAME"
     
-        # TAMBÉM fazer push para develop (se for ambiente de develop)
+        # Se for PR para develop, fazer commit direto na develop também
         if [[ "${{ github.base_ref }}" == "develop" ]]; then
-          echo "📤 Fazendo push para develop também..."
+          echo "📤 Criando commit de versionamento na develop..."
+      
+          # Get versions
+          FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
+          BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 2>/dev/null || echo 'N/A')
+      
+          # Fetch and checkout develop
           git fetch origin develop
           git checkout develop
-          git merge "$BRANCH_NAME" --no-ff
+          git pull origin develop
+      
+          # Merge changes
+          git merge "$BRANCH_NAME" --no-ff -m "feat(release): Deploy versão ${FRONTEND_VERSION} / ${BACKEND_VERSION}
+
+          🚀 Deploy automático para homologação
+          - Frontend: ${FRONTEND_VERSION}
+          - Backend: ${BACKEND_VERSION}
+          - Branch: ${BRANCH_NAME}
+          "
+      
+          # Push to develop
           git push origin develop
         fi
 
