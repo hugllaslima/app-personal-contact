@@ -227,9 +227,10 @@ jobs:
           --link contacts-db-homolog:contacts-db-homolog \
           contacts-backend-homolog:latest
 
-        # Frontend React
+        # Frontend React - ADICIONAR LINK PARA O BACKEND
         docker run -d --name contacts-frontend-homolog \
           -p 80:80 \
+          --link contacts-backend-homolog:app \
           contacts-frontend-homolog:latest
 
         echo "✅ Ambiente de homologação online!"
