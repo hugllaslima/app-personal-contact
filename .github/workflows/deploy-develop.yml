@@ -6,31 +6,54 @@ on:
     - develop
 
 jobs:
-  deploy-develop:
+  build-and-deploy:
+    environment: app-personal-contact-develop
     runs-on: [self-hosted, develop-runner]
 
     steps:
     - name: Limpar workspace do self-hosted runner
       run: |
         echo "🧹 Limpando workspace anterior..."
-        pwd
         rm -rf ./* ./.* 2>/dev/null || true
         echo "✅ Workspace limpo"
-        
+
     - name: Checkout do código
       uses: actions/checkout@v4
       with: 
         fetch-depth: 0
         clean: true
+        token: ${{ secrets.PAT_TOKEN }}
+
+    - name: Configurar Git para versionamento
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions Bot"
+        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+        echo "✅ Git configurado para versionamento"
+
+    - name: Configurar branch local corretamente
+      run: |
+        echo "🔧 Configurando branch local..."
+        BRANCH_NAME="${{ github.head_ref }}"
+        echo "Branch do PR: $BRANCH_NAME"
+        
+        # Fetch todas as branches
+        git fetch origin
+        
+        # Checkout para a branch do PR se não estivermos nela
+        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
+        
+        # Configurar upstream
+        git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
+        
+        echo "✅ Branch $BRANCH_NAME configurada"
 
     - name: Verificar estrutura do projeto
       run: |
         echo "📂 Verificando estrutura do projeto..."
         ls -la
-        echo ""
         echo "📁 Backend directory (Python):"
         ls -la backend/
-        echo ""
         echo "📁 Frontend directory (Node.js):"  
         ls -la frontend/
         echo "✅ Estrutura verificada com sucesso"
@@ -45,91 +68,147 @@ jobs:
       with:
         node-version: '18'
 
-    # --- Início das Etapas de Versionamento Automático ---
-
-    # BACKEND PYTHON - Instalar dependências
-    - name: Instalar dependências do backend Python
-      working-directory: ./backend
-      run: |
-        python -m pip install --upgrade pip
-        # Ajuste conforme seu projeto:
-        if [ -f "requirements.txt" ]; then
-          pip install -r requirements.txt
-        elif [ -f "pyproject.toml" ]; then
-          pip install .
-        fi
-
-    # BACKEND PYTHON - Versionamento (vamos deixar comentado por enquanto)
-    - name: Gerar nova versão para o backend Python
-      working-directory: ./backend
-      run: |
-        echo "⚠️  Versionamento Python ainda não configurado"
-        echo "Configure conforme sua ferramenta (poetry, bump2version, etc.)"
-
-    # FRONTEND NODE.JS - Instalar dependências
-    - name: Instalar dependências do frontend para versionamento
+    # --- Versionamento do Frontend ---
+    - name: Instalar dependências do frontend
       working-directory: ./frontend
       run: npm install
 
-    # FRONTEND - Instalar standard-version se não estiver no package.json
-    - name: Verificar e instalar standard-version no frontend
+    - name: Instalar standard-version no frontend
       working-directory: ./frontend
       run: |
         if ! npm list standard-version > /dev/null 2>&1; then
           echo "📦 Instalando standard-version..."
           npm install --save-dev standard-version
-        else
-          echo "✅ standard-version já está instalado"
-        fi
-
-    # FRONTEND - Verificar se script release existe, se não, criá-lo
-    - name: Configurar script de release no frontend
-      working-directory: ./frontend
-      run: |
-        if ! npm run release --silent 2>/dev/null; then
-          echo "📝 Adicionando script release ao package.json..."
           npm pkg set scripts.release="standard-version"
         fi
 
     - name: Gerar nova versão para o frontend
       working-directory: ./frontend
-      run: npm run release -- --prerelease develop --skip.tag --no-verify
-
-    - name: Configurar Git para commit de versão
       run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions"
+        echo "📋 Gerando nova versão do frontend..."
+        npm run release -- --prerelease develop --skip.tag --no-verify
+        echo "✅ Versão do frontend atualizada"
 
-    - name: Commitar as novas versões e CHANGELOGs
+    # --- Versionamento do Backend Python ---
+    - name: Instalar dependências do backend Python
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install bump2version
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        fi
+
+    - name: Verificar e criar .bumpversion.cfg se necessário
+      working-directory: ./backend
+      run: |
+        if [ ! -f ".bumpversion.cfg" ]; then
+          echo "📝 Criando .bumpversion.cfg..."
+          cat > .bumpversion.cfg << EOF
+        [bumpversion]
+        current_version = 0.1.0
+        commit = True
+        tag = False
+        message = chore(release): bump version to {new_version}
+
+        [bumpversion:file:pyproject.toml]
+        search = version = "{current_version}"
+        replace = version = "{new_version}"
+        EOF
+        fi
+
+    - name: Verificar versão atual no pyproject.toml
+      working-directory: ./backend
+      run: |
+        if [ ! -f "pyproject.toml" ]; then
+          echo "📝 Criando pyproject.toml básico..."
+          cat > pyproject.toml << EOF
+        [build-system]
+        requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+
+        [project]
+        name = "contacts-backend"
+        version = "0.1.0"
+        description = "Backend API for contacts application"
+        EOF
+        fi
+
+    - name: Gerar nova versão para o backend Python
+      working-directory: ./backend
+      run: |
+        echo "📋 Gerando nova versão do backend..."
+        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2)
+        bump2version --current-version "$CURRENT_VERSION" patch --allow-dirty
+        echo "✅ Versão do backend atualizada"
+
+    # --- Commit e Push das Alterações ---
+    - name: Verificar alterações de versionamento
+      run: |
+        echo "📋 Verificando alterações..."
+        git status
+        git diff --name-only
+
+    - name: Commit das alterações de versionamento
       run: |
         git add .
-        git commit -m "chore(release): [skip ci] versionamento automático para develop"
+        if ! git diff --cached --quiet; then
+          FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
+          BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 2>/dev/null || echo 'N/A')
+          
+          git commit -m "chore(release): [skip ci] versionamento automático para develop
 
-    - name: Push das alterações de versão e tags
+          - Frontend: $FRONTEND_VERSION
+          - Backend: $BACKEND_VERSION
+          "
+          echo "✅ Alterações commitadas"
+        else
+          echo "ℹ️ Nenhuma alteração para commitar"
+        fi
+
+    - name: Push das alterações para o repositório
       run: |
-        git push origin develop
-        git push --tags origin develop
+        echo "📤 Fazendo push das alterações..."
+        BRANCH_NAME="${{ github.head_ref }}"
+        echo "Branch do PR: $BRANCH_NAME"
+    
+        # Push para a branch do PR
+        git push origin "$BRANCH_NAME"
+    
+        # TAMBÉM fazer push para develop (se for ambiente de develop)
+        if [[ "${{ github.base_ref }}" == "develop" ]]; then
+          echo "📤 Fazendo push para develop também..."
+          git fetch origin develop
+          git checkout develop
+          git merge "$BRANCH_NAME" --no-ff
+          git push origin develop
+        fi
 
-    # --- Fim das Etapas de Versionamento Automático ---
-
+    # --- Build e Deploy Docker ---
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and push Backend Docker image (Python)
+    - name: Build Backend Docker image
       run: |
+        echo "🐍 Buildando Backend Python..."
         docker build -t contacts-backend-homolog:latest ./backend
-         
-    - name: Build and push Frontend Docker image (Node.js)
+
+    - name: Build Frontend Docker image
       run: |
-        docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api ./frontend
+        echo "⚛️ Buildando Frontend React..."
+        docker build -t contacts-frontend-homolog:latest \
+          --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api \
+          ./frontend
 
     - name: Parar e remover containers antigos
       run: |
+        echo "🛑 Parando containers antigos..."
         docker stop contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
         docker rm contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
 
-    - name: Subir novos containers
+    - name: Subir ambiente de homologação
       run: |
+        echo "🚀 Subindo ambiente de homologação..."
+        
         # PostgreSQL
         docker run -d --name contacts-db-homolog \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
@@ -137,6 +216,9 @@ jobs:
           -e POSTGRES_DB=${{ secrets.POSTGRES_DB_DEV }} \
           -v contacts_data_homolog:/var/lib/postgresql/data \
           postgres:13-alpine
+
+        # Aguardar DB inicializar
+        sleep 15
 
         # Backend Python
         docker run -d --name contacts-backend-homolog \
@@ -148,18 +230,29 @@ jobs:
           --link contacts-db-homolog:contacts-db-homolog \
           contacts-backend-homolog:latest
 
-        # Frontend Node.js
-        docker run -d --name contacts-frontend-homolog -p 80:80 contacts-frontend-homolog:latest
-         
-        echo "🚀 Deployment para o ambiente de Homologação concluído!"
+        # Frontend React - ADICIONAR LINK PARA O BACKEND
+        docker run -d --name contacts-frontend-homolog \
+          -p 80:80 \
+          --link contacts-backend-homolog:app \
+          contacts-frontend-homolog:latest
 
-    - name: Remover imagens antigas
-      run: |
-        docker rmi contacts-backend-homolog:latest contacts-frontend-homolog:latest || true
+        echo "✅ Ambiente de homologação online!"
 
-    - name: Verificação de status das imagens Docker
+    - name: Verificar status do deployment
       run: |
         echo "📊 Status dos containers:"
-        docker ps -a
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        
         echo ""
-        echo "🎉 Deployment para o ambiente de Homologação concluído com sucesso!"
+        echo "📋 Versões deployadas:"
+        echo "Frontend: $(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')"
+        echo "Backend: $(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 2>/dev/null || echo 'N/A')"
+        
+        echo ""
+        echo "🎉 Deploy de homologação concluído com sucesso!"
+
+    - name: Limpeza de recursos
+      run: |
+        echo "🧹 Limpando recursos desnecessários..."
+        docker image prune -f || true
+        echo "✅ Limpeza concluída!"
