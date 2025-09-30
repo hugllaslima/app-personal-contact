@@ -1,4 +1,4 @@
-name: Deploy Para Ambiente de Homologação 
+name: Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
@@ -7,42 +7,62 @@ on:
 
 jobs:
   deploy-develop:
-    runs-on:  [self-hosted, develop-runner]
+    runs-on: [self-hosted, develop-runner]
 
     steps:
+    # --- Início da Limpeza do Workspace ---
+    - name: Limpar workspace do self-hosted runner
+      run: |
+        echo "🧹 Limpando workspace anterior..."
+        pwd
+        rm -rf ./* ./.* 2>/dev/null || true
+        echo "✅ Workspace limpo"
+        
     - name: Checkout do código
       uses: actions/checkout@v4
       with: 
-        fetch-depth: 0   
+        fetch-depth: 0
+        clean: true
+
+    - name: Verificar estrutura do projeto
+      run: |
+        echo "📂 Verificando estrutura do projeto..."
+        ls -la
+        echo ""
+        echo "📁 Backend directory:"
+        ls -la backend/
+        echo ""
+        echo "📁 Frontend directory:"  
+        ls -la frontend/
+        echo "✅ Estrutura verificada com sucesso"
+    # --- Fim da Limpeza do Workspace ---
 
     - name: Configurar Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
-# --- Início das Etapas de Versionamento Automático ---
+    # --- Início das Etapas de Versionamento Automático ---
 
     - name: Instalar dependências do backend para versionamento
       working-directory: ./backend
       run: npm install
 
     - name: Gerar nova versão para o backend
+      working-directory: ./backend
       run: |
-        cd backend
         npm run release -- --prerelease develop --skip.tag --no-verify
         # --prerelease develop: Cria versões de pré-lançamento (ex: 1.0.0-develop.0)
         # --skip.tag: Evita que o standard-version crie uma tag individual, faremos o push de tags no final
         # --no-verify: Evita que ganchos de git (pre-commit) impeçam o versionamento
 
     - name: Instalar dependências do frontend para versionamento
-      run: |
-        cd frontend
-        npm install
+      working-directory: ./frontend
+      run: npm install
 
     - name: Gerar nova versão para o frontend
-      run: |
-        cd frontend
-        npm run release -- --prerelease develop --skip.tag --no-verify
+      working-directory: ./frontend
+      run: npm run release -- --prerelease develop --skip.tag --no-verify
 
     - name: Configurar Git para commit de versão
       run: |
@@ -60,7 +80,7 @@ jobs:
         git push origin develop
         git push --tags origin develop
 
-# --- Fim das Etapas de Versionamento Automático ---
+    # --- Fim das Etapas de Versionamento Automático ---
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -68,7 +88,7 @@ jobs:
     - name: Build and push Backend Docker image
       run: |
         docker build -t contacts-backend-homolog:latest ./backend
-        
+         
     - name: Build and push Frontend Docker image
       run: |
         docker build -t contacts-frontend-homolog:latest --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api ./frontend
@@ -100,9 +120,9 @@ jobs:
 
         # O frontend já tem a API_BASE_URL no build-arg, então não precisa passar aqui
         docker run -d --name contacts-frontend-homolog -p 80:80 contacts-frontend-homolog:latest
-          
+         
         # Mensagem após todos os containers serem iniciados
-        echo "Deployment para o ambiente de Homologação concluído!"
+        echo "🚀 Deployment para o ambiente de Homologação concluído!"
 
     - name: Remover imagens antigas
       run: |
@@ -110,5 +130,7 @@ jobs:
 
     - name: Verificação de status das imagens Docker
       run: |
+        echo "📊 Status dos containers:"
         docker ps -a
-        echo "Deployment para o ambiente de Homologação concluído com sucesso!"
+        echo ""
+        echo "🎉 Deployment para o ambiente de Homologação concluído com sucesso!"
