@@ -1,11 +1,11 @@
+name: (CI/CD) Deploy Para Ambiente de Homologação
+
 # =========================================================================
 # WORKFLOW: Deploy para Ambiente de Homologação
 # =========================================================================
 # Este workflow é executado quando um PR é aberto para a branch develop.
 # Realiza o versionamento automático, build e deploy da aplicação.
 # =========================================================================
-
-name: (CI/CD) Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
@@ -148,7 +148,7 @@ jobs:
         
         # Aplica o versionamento usando commitizen
         if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease develop --no-verify
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify
         elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
           python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease beta --no-verify
         else
