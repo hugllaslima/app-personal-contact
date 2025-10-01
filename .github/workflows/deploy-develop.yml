@@ -1,4 +1,4 @@
-name: (CI/CD) Deploy para Ambiente de Homologação
+name: (CI/CD) Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
@@ -35,13 +35,8 @@ jobs:
         BRANCH_NAME="${{ github.head_ref }}"
         echo "Branch do PR: $BRANCH_NAME"
         
-        # Fetch todas as branches
         git fetch origin
-        
-        # Checkout para a branch do PR
         git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
-        
-        # Configurar upstream
         git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
         
         echo "✅ Branch $BRANCH_NAME configurada"
@@ -54,28 +49,29 @@ jobs:
         
         if [[ "$BRANCH_NAME" == feature/* ]]; then
           echo "type=minor" >> $GITHUB_OUTPUT
+          echo "release_type=develop" >> $GITHUB_OUTPUT
           echo "description=Nova funcionalidade" >> $GITHUB_OUTPUT
-          echo "🆕 Detectado: Nova funcionalidade (MINOR)"
+          echo "emoji=✨" >> $GITHUB_OUTPUT
+          echo "🆕 Detectado: Nova funcionalidade (MINOR-DEVELOP)"
         elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
           echo "type=patch" >> $GITHUB_OUTPUT
+          echo "release_type=develop" >> $GITHUB_OUTPUT
           echo "description=Correção de bug" >> $GITHUB_OUTPUT
-          echo "🐛 Detectado: Correção (PATCH)"
+          echo "emoji=🐛" >> $GITHUB_OUTPUT
+          echo "🐛 Detectado: Correção (PATCH-DEVELOP)"
         elif [[ "$BRANCH_NAME" == release/* ]]; then
-          echo "type=major" >> $GITHUB_OUTPUT
-          echo "description=Nova versão principal" >> $GITHUB_OUTPUT
-          echo "🚀 Detectado: Release (MAJOR)"
+          echo "type=minor" >> $GITHUB_OUTPUT
+          echo "release_type=beta" >> $GITHUB_OUTPUT
+          echo "description=Release candidate" >> $GITHUB_OUTPUT
+          echo "emoji=🚀" >> $GITHUB_OUTPUT
+          echo "🚀 Detectado: Release candidate (MINOR-BETA)"
         else
           echo "type=patch" >> $GITHUB_OUTPUT
-          echo "description=Atualização geral" >> $GITHUB_OUTPUT
-          echo "⚙️ Detectado: Branch personalizada (PATCH)"
+          echo "release_type=alpha" >> $GITHUB_OUTPUT
+          echo "description=Atualização experimental" >> $GITHUB_OUTPUT
+          echo "emoji=⚙️" >> $GITHUB_OUTPUT
+          echo "⚙️ Detectado: Branch personalizada (PATCH-ALPHA)"
         fi
-
-    - name: Configurar Python e Node.js
-      run: |
-        echo "🐍 Configurando Python..."
-        python3 --version || echo "Python não encontrado"
-        echo "📦 Configurando Node.js..."
-        node --version || echo "Node.js não encontrado"
 
     - name: Configurar Python
       uses: actions/setup-python@v4
@@ -87,7 +83,7 @@ jobs:
       with:
         node-version: '18'
 
-    # --- VERSIONAMENTO FRONTEND ---
+    # --- VERSIONAMENTO FRONTEND CORPORATIVO ---
     - name: Instalar dependências do frontend
       working-directory: ./frontend
       run: npm install
@@ -97,16 +93,24 @@ jobs:
       run: |
         if ! npm list standard-version > /dev/null 2>&1; then
           npm install --save-dev standard-version
-          npm pkg set scripts.release="standard-version"
         fi
 
-    - name: Versionamento Frontend (${{ steps.version-type.outputs.description }})
+    - name: Versionamento Frontend Corporativo (${{ steps.version-type.outputs.description }})
       working-directory: ./frontend
       run: |
-        echo "📋 Aplicando versionamento ${{ steps.version-type.outputs.type }} no frontend..."
-        npm run release -- ${{ steps.version-type.outputs.type }} --prerelease develop --skip.tag --no-verify
+        echo "📋 Aplicando versionamento corporativo no frontend..."
+        echo "Tipo: ${{ steps.version-type.outputs.type }}"
+        echo "Release: ${{ steps.version-type.outputs.release_type }}"
+        
+        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
+          npm run release:develop -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
+          npm run release:beta -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        else
+          npm run release:alpha -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        fi
 
-    # --- VERSIONAMENTO BACKEND ---
+    # --- VERSIONAMENTO BACKEND CORPORATIVO ---
     - name: Instalar dependências do backend
       working-directory: ./backend
       run: |
@@ -116,71 +120,82 @@ jobs:
           pip install -r requirements.txt
         fi
 
-    - name: Configurar .bumpversion.cfg no backend
+    - name: Versionamento Backend Corporativo (${{ steps.version-type.outputs.description }})
       working-directory: ./backend
       run: |
-        if [ ! -f ".bumpversion.cfg" ]; then
-          cat > .bumpversion.cfg << 'EOF'
-        [bumpversion]
-        current_version = 0.1.0
-        commit = True
-        tag = False
-        message = chore(release): bump backend to {new_version}
-
-        [bumpversion:file:pyproject.toml]
-        search = version = "{current_version}"
-        replace = version = "{new_version}"
-        EOF
-        fi
-
-    - name: Versionamento Backend (${{ steps.version-type.outputs.description }})
-      working-directory: ./backend
-      run: |
-        echo "📋 Aplicando versionamento ${{ steps.version-type.outputs.type }} no backend..."
-        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
-
-    # --- COMMIT E PUSH ---
-    - name: Commit das alterações de versionamento
-      run: |
-        git add .
-        if ! git diff --cached --quiet; then
-          FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-          BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-          
-          git commit -m "chore(release): [skip ci] ${{ steps.version-type.outputs.description }}
-
-          📦 Versionamento automático:
-          - Frontend: $FRONTEND_VERSION  
-          - Backend: $BACKEND_VERSION
-          - Tipo: ${{ steps.version-type.outputs.type }}
-          - Branch: ${{ github.head_ref }}
-          "
-          echo "✅ Alterações commitadas"
+        echo "📋 Aplicando versionamento corporativo no backend..."
+        
+        # Determinar comando baseado no tipo de release
+        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
+          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value develop
+        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
+          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value beta
         else
-          echo "ℹ️ Nenhuma alteração para commitar"
+          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value alpha
         fi
 
-    - name: Push das alterações para a branch do PR
+    # --- CRIAR TAGS GIT CORPORATIVAS ---
+    - name: Criar tag corporativa
+      id: tag
       run: |
-        BRANCH_NAME="${{ github.head_ref }}"
-        echo "📤 Fazendo push para a branch: $BRANCH_NAME"
-        
-        # Push apenas para a branch do PR (REMOVIDO O MERGE AUTOMÁTICO)
-        git push origin "$BRANCH_NAME"
-        
         FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
         BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
         
-        echo "✅ Versionamento concluído:"
-        echo "   - Frontend: $FRONTEND_VERSION"
-        echo "   - Backend: $BACKEND_VERSION"
-        echo "   - Tipo: ${{ steps.version-type.outputs.description }}"
-        echo ""
-        echo "🔄 Próximo passo: Faça o merge do PR manualmente no GitHub"
-        echo "🎯 As versões aparecerão automaticamente na branch develop após o merge"
+        # Usar a versão do frontend como referência principal
+        TAG_NAME="v${FRONTEND_VERSION}"
+        
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
+        echo "backend_version=$BACKEND_VERSION" >> $GITHUB_OUTPUT
+        
+        echo "🏷️ Tag que será criada: $TAG_NAME"
 
-    # --- DOCKER BUILD E DEPLOY ---
+    # --- COMMIT CORPORATIVO ---
+    - name: Commit corporativo das alterações
+      run: |
+        git add .
+        if ! git diff --cached --quiet; then
+          # Commit seguindo Conventional Commits
+          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}
+
+          ${{ steps.version-type.outputs.description }}
+          
+          📦 Versionamento corporativo:
+          • Frontend: ${{ steps.tag.outputs.frontend_version }}
+          • Backend: ${{ steps.tag.outputs.backend_version }}
+          • Ambiente: ${{ steps.version-type.outputs.release_type }}
+          • Tipo: ${{ steps.version-type.outputs.type }}
+          • Branch: ${{ github.head_ref }}
+          
+          Co-authored-by: GitHub Actions <actions@github.com>"
+          
+          echo "✅ Commit corporativo criado"
+        fi
+
+    - name: Push corporativo e criar tag
+      run: |
+        BRANCH_NAME="${{ github.head_ref }}"
+        
+        # Push para a branch do PR
+        git push origin "$BRANCH_NAME"
+        
+        # Criar tag local (será enviada para o repositório quando merger)
+        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}
+
+        🚀 Deploy ${{ steps.version-type.outputs.description }}
+        • Frontend: ${{ steps.tag.outputs.frontend_version }}
+        • Backend: ${{ steps.tag.outputs.backend_version }}
+        • Ambiente: Homologação (${{ steps.version-type.outputs.release_type }})
+        • Data: $(date '+%d/%m/%Y %H:%M')
+        
+        Criado automaticamente pelo GitHub Actions"
+        
+        echo "✅ Versionamento corporativo concluído!"
+        echo "📦 Frontend: ${{ steps.tag.outputs.frontend_version }}"
+        echo "📦 Backend: ${{ steps.tag.outputs.backend_version }}"
+        echo "🏷️ Tag local criada: ${{ steps.tag.outputs.tag_name }}"
+
+    # --- CONTINUA COM SEU DOCKER BUILD E DEPLOY ATUAL ---
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -198,9 +213,8 @@ jobs:
 
     - name: Deploy para homologação
       run: |
-        echo "🚀 Fazendo deploy para homologação..."
+        echo "🚀 Fazendo deploy corporativo para homologação..."
         
-        # Parar containers antigos
         docker stop contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
         docker rm contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
 
@@ -230,25 +244,24 @@ jobs:
           --link contacts-backend-homolog:app \
           contacts-frontend-homolog:latest
 
-    - name: Verificar deploy
+    - name: Verificar deploy corporativo
       run: |
-        echo "📊 Status do deploy:"
+        echo "📊 Status do deploy corporativo:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         
-        FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-        BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-        
         echo ""
-        echo "🎉 Deploy de homologação concluído!"
+        echo "🎉 Deploy corporativo de homologação concluído!"
         echo "📦 Versões deployadas:"
-        echo "   Frontend: $FRONTEND_VERSION"
-        echo "   Backend: $BACKEND_VERSION"
+        echo "   Frontend: ${{ steps.tag.outputs.frontend_version }}"
+        echo "   Backend: ${{ steps.tag.outputs.backend_version }}"
+        echo "   Tag: ${{ steps.tag.outputs.tag_name }}"
+        echo "   Ambiente: ${{ steps.version-type.outputs.release_type }}"
         echo "   Tipo: ${{ steps.version-type.outputs.description }}"
         echo ""
         echo "🔄 Próximos passos:"
         echo "   1. ✅ Testar a aplicação no ambiente de homologação"
         echo "   2. ✅ Fazer o merge manual do PR no GitHub"
-        echo "   3. ✅ As versões irão automaticamente para a branch develop"
+        echo "   3. ✅ A tag será enviada automaticamente após o merge"
 
     - name: Limpeza
       run: |
