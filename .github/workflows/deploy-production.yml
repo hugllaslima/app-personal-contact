@@ -32,14 +32,14 @@ jobs:
       with: 
         fetch-depth: 0  # Histórico completo para versionamento
         clean: true
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.PAT_TOKEN_PROD }}
 
     # Configura o Git para realizar commits automatizados
     - name: Configurar Git
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions Bot"
-        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN_PROD }}@github.com/${{ github.repository }}.git
 
     # Configura a branch local para trabalhar com a branch do PR
     - name: Configurar branch local
