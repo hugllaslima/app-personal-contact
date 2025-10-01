@@ -1,18 +1,15 @@
 # Changelog
 
-Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
-e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
+## 0.1.0 (2023-10-30)
 
-## [Unreleased]
 
-## [## [Unreleased]] - 2023-09-30
-### Added
-- Funcionalidades adicionadas nesta versão
+### ✨ Novas Funcionalidades
 
-### Changed
-- Alterações em funcionalidades existentes
+* **inicial:** Versão inicial da API de contatos ([0000000](https://github.com/hugllaslima/app-personal-contact/commit/0000000))
 
-### Fixed
-- Correções de bugs
+
+### 🔧 Manutenção
+
+* **config:** Configuração inicial do sistema de versionamento ([0000000](https://github.com/hugllaslima/app-personal-contact/commit/0000000))

@@ -134,7 +134,7 @@ jobs:
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
-        pip install bump2version
+        pip install bump2version commitizen python-standard-version
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt
         fi
@@ -146,8 +146,14 @@ jobs:
         # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         
-        # Aplica o versionamento
-        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
+        # Aplica o versionamento usando commitizen
+        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease develop --no-verify
+        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease beta --no-verify
+        else
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify
+        fi
         
         # Verifica a nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
