@@ -151,6 +151,8 @@ jobs:
           echo "Criando tag inicial para changelog incremental..."
           git tag v1.0.0
           git push origin v1.0.0
+          # Sincroniza o repositório local para que o commitizen reconheça a nova tag
+          git fetch --tags
         fi
         
         # Aplica o versionamento usando commitizen
