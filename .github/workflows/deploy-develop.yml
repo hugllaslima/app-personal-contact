@@ -120,20 +120,22 @@ jobs:
           pip install -r requirements.txt
         fi
 
-    - name: Versionamento Backend Corporativo (${{ steps.version-type.outputs.description }})
+    - name: Versionamento Backend (${{ steps.version-type.outputs.description }})
       working-directory: ./backend
       run: |
-        echo "📋 Aplicando versionamento corporativo no backend..."
+        echo "📋 Aplicando versionamento no backend..."
         
-        # Determinar comando baseado no tipo de release
-        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
-          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value develop
-        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
-          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value beta
-        else
-          bump2version ${{ steps.version-type.outputs.type }} --allow-dirty --new-version-part release --new-version-value alpha
-        fi
-
+        # Usar a versão atual do arquivo
+        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        echo "Versão atual: $CURRENT_VERSION"
+        
+        # Aplicar o versionamento usando o método que já funcionava
+        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
+        
+        # Verificar a nova versão
+        NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        echo "✅ Nova versão do backend: $NEW_VERSION"
+        
     # --- CRIAR TAGS GIT CORPORATIVAS ---
     - name: Criar tag corporativa
       id: tag
