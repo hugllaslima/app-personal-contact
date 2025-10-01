@@ -1,6 +1,6 @@
 {
   "name": "contact-app-frontend",
-  "version": "1.0.1-develop.3",
+  "version": "1.1.0-develop.0",
   "description": "Frontend para o gerenciador de contatos pessoais, construído com HTML, CSS e JavaScript puro.",
   "main": "src/index.html",
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "keywords": [
     "frontend",
-    "html", 
+    "html",
     "css",
     "javascript",
     "contatos"
@@ -26,14 +26,38 @@
   },
   "standard-version": {
     "types": [
-      {"type": "feat", "section": "✨ Novas Funcionalidades"},
-      {"type": "fix", "section": "🐛 Correções de Bugs"},
-      {"type": "chore", "section": "🔧 Manutenção"},
-      {"type": "docs", "section": "📚 Documentação"},
-      {"type": "style", "section": "💎 Estilo"},
-      {"type": "refactor", "section": "♻️ Refatoração"},
-      {"type": "perf", "section": "⚡ Performance"},
-      {"type": "test", "section": "🧪 Testes"}
+      {
+        "type": "feat",
+        "section": "✨ Novas Funcionalidades"
+      },
+      {
+        "type": "fix",
+        "section": "🐛 Correções de Bugs"
+      },
+      {
+        "type": "chore",
+        "section": "🔧 Manutenção"
+      },
+      {
+        "type": "docs",
+        "section": "📚 Documentação"
+      },
+      {
+        "type": "style",
+        "section": "💎 Estilo"
+      },
+      {
+        "type": "refactor",
+        "section": "♻️ Refatoração"
+      },
+      {
+        "type": "perf",
+        "section": "⚡ Performance"
+      },
+      {
+        "type": "test",
+        "section": "🧪 Testes"
+      }
     ],
     "commitUrlFormat": "https://github.com/hugllaslima/app-personal-contact/commit/{{hash}}",
     "compareUrlFormat": "https://github.com/hugllaslima/app-personal-contact/compare/{{previousTag}}...{{currentTag}}"
