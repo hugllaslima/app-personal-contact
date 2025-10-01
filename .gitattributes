@@ -1,0 +1,35 @@
+# Configuração de quebras de linha para diferentes tipos de arquivo
+# Garante consistência entre sistemas Windows, Linux e macOS
+
+# Arquivos de texto devem ter quebras de linha normalizadas
+* text=auto
+
+# Arquivos de configuração específicos
+*.cfg text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# Arquivos de código
+*.py text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.sh text eol=lf
+
+# Arquivos que devem manter quebras de linha Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Arquivos binários
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary

@@ -32,14 +32,14 @@ jobs:
       with: 
         fetch-depth: 0  # Histórico completo para versionamento
         clean: true
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.PAT_TOKEN_PROD }}
 
     # Configura o Git para realizar commits automatizados
     - name: Configurar Git
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions Bot"
-        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN_PROD }}@github.com/${{ github.repository }}.git
 
     # Configura a branch local para trabalhar com a branch do PR
     - name: Configurar branch local
@@ -128,7 +128,7 @@ jobs:
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
-        pip install bump2version
+        pip install bump2version commitizen
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt
         fi
@@ -140,8 +140,8 @@ jobs:
         # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         
-        # Aplica o versionamento
-        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
+        # Aplica o versionamento usando commitizen
+        python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --no-verify --yes
         
         # Verifica a nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
