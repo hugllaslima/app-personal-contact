@@ -134,46 +134,31 @@ jobs:
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
-        pip install bump2version commitizen
+        pip install bump2version
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt
         fi
 
     # Aplica o versionamento no backend
-    - name: Versionamento Backend
+    - name: Versionamento Backend (${{ steps.version-type.outputs.description }})
       working-directory: ./backend
       run: |
-        # Extrai a versão atual do pyproject.toml
+        echo "📋 Aplicando versionamento no backend..."
+        
+        # Verificar versão atual
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        echo "📦 Versão atual do backend: $CURRENT_VERSION"
+        echo "📦 Versão atual: $CURRENT_VERSION"
         
-        # Verifica se existe alguma tag no repositório
-        if ! git tag -l | grep -q .; then
-          echo "🏷️ Nenhuma tag encontrada. Criando tag inicial..."
-          git tag -a "v$CURRENT_VERSION" -m "🚀 Tag inicial v$CURRENT_VERSION
-
-          📦 Versão inicial do projeto
-          • Backend: $CURRENT_VERSION
-          • Data: $(date '+%d/%m/%Y %H:%M')
-          
-          Criado automaticamente pelo GitHub Actions"
-          git push origin "v$CURRENT_VERSION"
-          echo "✅ Tag inicial v$CURRENT_VERSION criada e enviada"
+        # Verificar se CHANGELOG tem a linha necessária
+        if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
+          echo "⚠️ Adicionando seção Unreleased ao CHANGELOG..."
+          echo -e "## [Unreleased]\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
         fi
         
-        # Busca todas as tags para garantir sincronização
-        git fetch --tags
+        # Aplicar versionamento com bump2version (simples e funcional)
+        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
         
-        # Aplica o versionamento usando commitizen
-        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify --yes
-        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease beta --no-verify --yes
-        else
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify --yes
-        fi
-        
-        # Verifica a nova versão
+        # Verificar nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         echo "✅ Nova versão do backend: $NEW_VERSION"
         
