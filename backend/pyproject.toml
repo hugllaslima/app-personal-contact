@@ -24,7 +24,7 @@ version_files = [
 ]
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
-changelog_incremental = false
+changelog_incremental = true
 major_version_zero = true
 
 [tool.bumpversion]

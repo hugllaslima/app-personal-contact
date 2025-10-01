@@ -146,6 +146,13 @@ jobs:
         # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         
+        # Cria tag inicial se não existir nenhuma (para resolver changelog incremental)
+        if ! git tag -l | grep -q "v"; then
+          echo "Criando tag inicial para changelog incremental..."
+          git tag v1.0.0
+          git push origin v1.0.0
+        fi
+        
         # Aplica o versionamento usando commitizen
         if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
           python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify --yes
