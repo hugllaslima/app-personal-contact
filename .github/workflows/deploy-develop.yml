@@ -145,15 +145,24 @@ jobs:
       run: |
         # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        echo "📦 Versão atual do backend: $CURRENT_VERSION"
         
-        # Cria tag inicial baseada na versão atual se não existir nenhuma
-        if ! git tag -l | grep -q "v"; then
-          echo "Criando tag inicial baseada na versão atual para changelog incremental..."
-          git tag v$CURRENT_VERSION
-          git push origin v$CURRENT_VERSION
-          # Sincroniza o repositório local para que o commitizen reconheça a nova tag
-          git fetch --tags
+        # Verifica se existe alguma tag no repositório
+        if ! git tag -l | grep -q .; then
+          echo "🏷️ Nenhuma tag encontrada. Criando tag inicial..."
+          git tag -a "v$CURRENT_VERSION" -m "🚀 Tag inicial v$CURRENT_VERSION
+
+          📦 Versão inicial do projeto
+          • Backend: $CURRENT_VERSION
+          • Data: $(date '+%d/%m/%Y %H:%M')
+          
+          Criado automaticamente pelo GitHub Actions"
+          git push origin "v$CURRENT_VERSION"
+          echo "✅ Tag inicial v$CURRENT_VERSION criada e enviada"
         fi
+        
+        # Busca todas as tags para garantir sincronização
+        git fetch --tags
         
         # Aplica o versionamento usando commitizen
         if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
