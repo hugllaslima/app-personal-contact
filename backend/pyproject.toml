@@ -1,8 +1,8 @@
 [project]
 name = "contact-app-backend"
-version = "1.0.14"
+version = "0.1.0"
 description = "Backend Flask para o gerenciador de contatos pessoais."
-readme = "README.md" # Se você tiver um README.md na pasta backend
+readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
@@ -10,18 +10,43 @@ authors = [
 ]
 keywords = ["flask", "backend", "api", "python", "contatos"]
 
-# Para ferramentas de build, como setuptools, poetry, flit, etc.
-# Para um projeto simples como este, não precisamos de uma ferramenta de build complexa,
-# mas esta seção é padrão para indicar a conformidade com PEP 517/621.
 [build-system]
-requires = ["setuptools>=61.0"] # ou ["poetry-core>=1.0.0"] se usar Poetry
-build-backend = "setuptools.build_meta" # ou "poetry.core.masonry.api" se usar Poetry
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
-# Opcional: Se você usar Poetry ou PDM para gerenciar dependências,
-# esta seção seria mais detalhada. Para este exemplo, mantemos simples.
-# As dependências de runtime ainda são instaladas via requirements.txt no Dockerfile.
-# [tool.poetry.dependencies]
-# python = ">=3.9"
-# Flask = "2.3.2"
-# Flask-SQLAlchemy = "3.1.1"
-# ...
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "1.0.15"
+tag_format = "v$version"
+version_files = [
+    "pyproject.toml:version",
+    ".bumpversion.cfg:current_version"
+]
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+changelog_incremental = true
+major_version_zero = true
+
+[tool.bumpversion]
+current_version = "1.0.15"
+commit = True
+tag = False
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(-(?P<release>[a-z]+)\\.(?P<build>\\d+))?"
+serialize = [
+    "{major}.{minor}.{patch}-{release}.{build}",
+    "{major}.{minor}.{patch}"
+]
+
+[tool.standard-version]
+types = [
+    { type = "feat", section = "✨ Novas Funcionalidades" },
+    { type = "fix", section = "🐛 Correções de Bugs" },
+    { type = "chore", section = "🔧 Manutenção" },
+    { type = "docs", section = "📚 Documentação" },
+    { type = "style", section = "💎 Estilo" },
+    { type = "refactor", section = "♻️ Refatoração" },
+    { type = "perf", section = "⚡ Performance" },
+    { type = "test", section = "🧪 Testes" }
+]
+commit_url_format = "https://github.com/hugllaslima/app-personal-contact/commit/{{hash}}"
+compare_url_format = "https://github.com/hugllaslima/app-personal-contact/compare/{{previousTag}}...{{currentTag}}"
