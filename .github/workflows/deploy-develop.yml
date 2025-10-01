@@ -148,11 +148,11 @@ jobs:
         
         # Aplica o versionamento usando commitizen
         if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify --yes
         elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease beta --no-verify
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease beta --no-verify --yes
         else
-          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify
+          python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --prerelease alpha --no-verify --yes
         fi
         
         # Verifica a nova versão

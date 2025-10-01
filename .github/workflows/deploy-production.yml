@@ -141,7 +141,7 @@ jobs:
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         
         # Aplica o versionamento usando commitizen
-        python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --no-verify
+        python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --no-verify --yes
         
         # Verifica a nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
