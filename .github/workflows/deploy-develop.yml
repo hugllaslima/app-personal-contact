@@ -146,11 +146,11 @@ jobs:
         # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         
-        # Cria tag inicial se não existir nenhuma (para resolver changelog incremental)
+        # Cria tag inicial baseada na versão atual se não existir nenhuma
         if ! git tag -l | grep -q "v"; then
-          echo "Criando tag inicial para changelog incremental..."
-          git tag v1.0.0
-          git push origin v1.0.0
+          echo "Criando tag inicial baseada na versão atual para changelog incremental..."
+          git tag v$CURRENT_VERSION
+          git push origin v$CURRENT_VERSION
           # Sincroniza o repositório local para que o commitizen reconheça a nova tag
           git fetch --tags
         fi
