@@ -1,4 +1,4 @@
-name: Deploy Para Ambiente de Homologação
+name: (CI/CD) Deploy para Ambiente de Homologação
 
 on:
   pull_request:
