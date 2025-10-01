@@ -1,13 +1,16 @@
 {
   "name": "contact-app-frontend",
-  "version": "1.0.1-develop.10",
+  "version": "1.1.0-develop.1",
   "description": "Frontend para o gerenciador de contatos pessoais, construído com HTML, CSS e JavaScript puro.",
   "main": "src/index.html",
   "scripts": {
     "start": "echo 'Para iniciar o frontend, use docker-compose up --build -d'",
     "test": "echo 'Nenhum teste especificado ainda para o frontend estático'",
     "version": "echo 'Atualizando versão do frontend...'",
-    "release": "standard-version"
+    "release": "standard-version",
+    "release:alpha": "standard-version --prerelease alpha",
+    "release:beta": "standard-version --prerelease beta",
+    "release:develop": "standard-version --prerelease develop"
   },
   "keywords": [
     "frontend",
@@ -20,5 +23,43 @@
   "license": "MIT",
   "devDependencies": {
     "standard-version": "^9.5.0"
+  },
+  "standard-version": {
+    "types": [
+      {
+        "type": "feat",
+        "section": "✨ Novas Funcionalidades"
+      },
+      {
+        "type": "fix",
+        "section": "🐛 Correções de Bugs"
+      },
+      {
+        "type": "chore",
+        "section": "🔧 Manutenção"
+      },
+      {
+        "type": "docs",
+        "section": "📚 Documentação"
+      },
+      {
+        "type": "style",
+        "section": "💎 Estilo"
+      },
+      {
+        "type": "refactor",
+        "section": "♻️ Refatoração"
+      },
+      {
+        "type": "perf",
+        "section": "⚡ Performance"
+      },
+      {
+        "type": "test",
+        "section": "🧪 Testes"
+      }
+    ],
+    "commitUrlFormat": "https://github.com/hugllaslima/app-personal-contact/commit/{{hash}}",
+    "compareUrlFormat": "https://github.com/hugllaslima/app-personal-contact/compare/{{previousTag}}...{{currentTag}}"
   }
 }

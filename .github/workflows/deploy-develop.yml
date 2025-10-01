@@ -1,4 +1,11 @@
-name: (CI/CD) Deploy para Ambiente de Homologação
+# =========================================================================
+# WORKFLOW: Deploy para Ambiente de Homologação
+# =========================================================================
+# Este workflow é executado quando um PR é aberto para a branch develop.
+# Realiza o versionamento automático, build e deploy da aplicação.
+# =========================================================================
+
+name: (CI/CD) Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
@@ -10,103 +17,119 @@ jobs:
     runs-on: [self-hosted, develop-runner]
 
     steps:
-    - name: Limpar workspace do self-hosted runner
-      run: |
-        echo "🧹 Limpando workspace anterior..."
-        rm -rf ./* ./.* 2>/dev/null || true
-        echo "✅ Workspace limpo"
+    # =========================================================================
+    # PREPARAÇÃO DO AMBIENTE
+    # =========================================================================
+    
+    # Limpa o workspace para evitar conflitos com execuções anteriores
+    - name: Limpar workspace
+      run: rm -rf ./* ./.* 2>/dev/null || true
 
+    # Checkout do código com token de acesso para permitir commits
     - name: Checkout do código
       uses: actions/checkout@v4
       with: 
-        fetch-depth: 0
+        fetch-depth: 0  # Histórico completo para versionamento
         clean: true
         token: ${{ secrets.PAT_TOKEN }}
 
-    - name: Configurar Git para versionamento
+    # Configura o Git para realizar commits automatizados
+    - name: Configurar Git
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions Bot"
         git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
-    - name: Configurar branch local corretamente
+    # Configura a branch local para trabalhar com a branch do PR
+    - name: Configurar branch local
       run: |
-        echo "🔧 Configurando branch local..."
         BRANCH_NAME="${{ github.head_ref }}"
-        echo "Branch do PR: $BRANCH_NAME"
-        
-        # Fetch todas as branches
         git fetch origin
-        
-        # Checkout para a branch do PR
         git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
-        
-        # Configurar upstream
         git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
-        
-        echo "✅ Branch $BRANCH_NAME configurada"
 
-    - name: Determinar tipo de versionamento baseado na branch
+    # =========================================================================
+    # ANÁLISE DE VERSIONAMENTO
+    # =========================================================================
+    
+    # Determina o tipo de versionamento baseado no nome da branch
+    - name: Determinar tipo de versionamento
       id: version-type
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
-        echo "🔍 Analisando branch: $BRANCH_NAME"
         
         if [[ "$BRANCH_NAME" == feature/* ]]; then
           echo "type=minor" >> $GITHUB_OUTPUT
+          echo "release_type=develop" >> $GITHUB_OUTPUT
           echo "description=Nova funcionalidade" >> $GITHUB_OUTPUT
-          echo "🆕 Detectado: Nova funcionalidade (MINOR)"
+          echo "emoji=✨" >> $GITHUB_OUTPUT
         elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
           echo "type=patch" >> $GITHUB_OUTPUT
+          echo "release_type=develop" >> $GITHUB_OUTPUT
           echo "description=Correção de bug" >> $GITHUB_OUTPUT
-          echo "🐛 Detectado: Correção (PATCH)"
+          echo "emoji=🐛" >> $GITHUB_OUTPUT
         elif [[ "$BRANCH_NAME" == release/* ]]; then
-          echo "type=major" >> $GITHUB_OUTPUT
-          echo "description=Nova versão principal" >> $GITHUB_OUTPUT
-          echo "🚀 Detectado: Release (MAJOR)"
+          echo "type=minor" >> $GITHUB_OUTPUT
+          echo "release_type=beta" >> $GITHUB_OUTPUT
+          echo "description=Release candidate" >> $GITHUB_OUTPUT
+          echo "emoji=🚀" >> $GITHUB_OUTPUT
         else
           echo "type=patch" >> $GITHUB_OUTPUT
-          echo "description=Atualização geral" >> $GITHUB_OUTPUT
-          echo "⚙️ Detectado: Branch personalizada (PATCH)"
+          echo "release_type=alpha" >> $GITHUB_OUTPUT
+          echo "description=Atualização experimental" >> $GITHUB_OUTPUT
+          echo "emoji=⚙️" >> $GITHUB_OUTPUT
         fi
 
-    - name: Configurar Python e Node.js
-      run: |
-        echo "🐍 Configurando Python..."
-        python3 --version || echo "Python não encontrado"
-        echo "📦 Configurando Node.js..."
-        node --version || echo "Node.js não encontrado"
-
+    # =========================================================================
+    # CONFIGURAÇÃO DE AMBIENTES
+    # =========================================================================
+    
+    # Configura Python para o backend
     - name: Configurar Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
+    # Configura Node.js para o frontend
     - name: Configurar Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
 
-    # --- VERSIONAMENTO FRONTEND ---
+    # =========================================================================
+    # VERSIONAMENTO FRONTEND
+    # =========================================================================
+    
+    # Instala dependências do frontend
     - name: Instalar dependências do frontend
       working-directory: ./frontend
       run: npm install
 
-    - name: Configurar standard-version no frontend
+    # Garante que standard-version está instalado
+    - name: Configurar standard-version
       working-directory: ./frontend
       run: |
         if ! npm list standard-version > /dev/null 2>&1; then
           npm install --save-dev standard-version
-          npm pkg set scripts.release="standard-version"
         fi
 
-    - name: Versionamento Frontend (${{ steps.version-type.outputs.description }})
+    # Aplica o versionamento no frontend baseado no tipo de branch
+    - name: Versionamento Frontend
       working-directory: ./frontend
       run: |
-        echo "📋 Aplicando versionamento ${{ steps.version-type.outputs.type }} no frontend..."
-        npm run release -- ${{ steps.version-type.outputs.type }} --prerelease develop --skip.tag --no-verify
+        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
+          npm run release:develop -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
+          npm run release:beta -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        else
+          npm run release:alpha -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
+        fi
 
-    # --- VERSIONAMENTO BACKEND ---
+    # =========================================================================
+    # VERSIONAMENTO BACKEND
+    # =========================================================================
+    
+    # Instala dependências do backend
     - name: Instalar dependências do backend
       working-directory: ./backend
       run: |
@@ -116,95 +139,110 @@ jobs:
           pip install -r requirements.txt
         fi
 
-    - name: Configurar .bumpversion.cfg no backend
+    # Aplica o versionamento no backend
+    - name: Versionamento Backend
       working-directory: ./backend
       run: |
-        if [ ! -f ".bumpversion.cfg" ]; then
-          cat > .bumpversion.cfg << 'EOF'
-        [bumpversion]
-        current_version = 0.1.0
-        commit = True
-        tag = False
-        message = chore(release): bump backend to {new_version}
-
-        [bumpversion:file:pyproject.toml]
-        search = version = "{current_version}"
-        replace = version = "{new_version}"
-        EOF
-        fi
-
-    - name: Versionamento Backend (${{ steps.version-type.outputs.description }})
-      working-directory: ./backend
-      run: |
-        echo "📋 Aplicando versionamento ${{ steps.version-type.outputs.type }} no backend..."
+        # Extrai a versão atual do pyproject.toml
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        
+        # Aplica o versionamento
         bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
-
-    # --- COMMIT E PUSH ---
-    - name: Commit das alterações de versionamento
-      run: |
-        git add .
-        if ! git diff --cached --quiet; then
-          FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-          BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-          
-          git commit -m "chore(release): [skip ci] ${{ steps.version-type.outputs.description }}
-
-          📦 Versionamento automático:
-          - Frontend: $FRONTEND_VERSION  
-          - Backend: $BACKEND_VERSION
-          - Tipo: ${{ steps.version-type.outputs.type }}
-          - Branch: ${{ github.head_ref }}
-          "
-          echo "✅ Alterações commitadas"
-        else
-          echo "ℹ️ Nenhuma alteração para commitar"
-        fi
-
-    - name: Push das alterações para a branch do PR
-      run: |
-        BRANCH_NAME="${{ github.head_ref }}"
-        echo "📤 Fazendo push para a branch: $BRANCH_NAME"
         
-        # Push apenas para a branch do PR (REMOVIDO O MERGE AUTOMÁTICO)
-        git push origin "$BRANCH_NAME"
+        # Verifica a nova versão
+        NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        echo "✅ Nova versão do backend: $NEW_VERSION"
         
+    # =========================================================================
+    # GERENCIAMENTO DE TAGS
+    # =========================================================================
+    
+    # Cria tag baseada nas versões atualizadas
+    - name: Criar tag
+      id: tag
+      run: |
+        # Extrai as versões atualizadas
         FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
         BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
         
-        echo "✅ Versionamento concluído:"
-        echo "   - Frontend: $FRONTEND_VERSION"
-        echo "   - Backend: $BACKEND_VERSION"
-        echo "   - Tipo: ${{ steps.version-type.outputs.description }}"
-        echo ""
-        echo "🔄 Próximo passo: Faça o merge do PR manualmente no GitHub"
-        echo "🎯 As versões aparecerão automaticamente na branch develop após o merge"
+        # Define o nome da tag baseado na versão do frontend
+        TAG_NAME="v${FRONTEND_VERSION}"
+        
+        # Exporta as variáveis para uso em outros steps
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
+        echo "backend_version=$BACKEND_VERSION" >> $GITHUB_OUTPUT
 
-    # --- DOCKER BUILD E DEPLOY ---
-    - name: Set up Docker Buildx
+    # =========================================================================
+    # COMMIT E PUSH
+    # =========================================================================
+    
+    # Realiza commit das alterações de versionamento
+    - name: Commit das alterações
+      run: |
+        git add .
+        if ! git diff --cached --quiet; then
+          # Commit seguindo Conventional Commits
+          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}
+
+          ${{ steps.version-type.outputs.description }}
+          
+          📦 Versionamento:
+          • Frontend: ${{ steps.tag.outputs.frontend_version }}
+          • Backend: ${{ steps.tag.outputs.backend_version }}
+          • Ambiente: ${{ steps.version-type.outputs.release_type }}
+          • Tipo: ${{ steps.version-type.outputs.type }}
+          • Branch: ${{ github.head_ref }}
+          
+          Co-authored-by: GitHub Actions <actions@github.com>"
+        fi
+
+    # Push das alterações e criação da tag
+    - name: Push e criar tag
+      run: |
+        BRANCH_NAME="${{ github.head_ref }}"
+        
+        # Push para a branch do PR
+        git push origin "$BRANCH_NAME"
+        
+        # Criar tag local (será enviada para o repositório quando merger)
+        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}
+
+        🚀 Deploy ${{ steps.version-type.outputs.description }}
+        • Frontend: ${{ steps.tag.outputs.frontend_version }}
+        • Backend: ${{ steps.tag.outputs.backend_version }}
+        • Ambiente: Homologação (${{ steps.version-type.outputs.release_type }})
+        • Data: $(date '+%d/%m/%Y %H:%M')
+        
+        Criado automaticamente pelo GitHub Actions"
+
+    # =========================================================================
+    # BUILD E DEPLOY
+    # =========================================================================
+    
+    # Configura Docker Buildx para builds otimizados
+    - name: Configurar Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build Backend Docker image
-      run: |
-        echo "🐍 Buildando Backend Python..."
-        docker build -t contacts-backend-homolog:latest ./backend
+    # Build da imagem Docker do Backend
+    - name: Build Backend
+      run: docker build -t contacts-backend-homolog:latest ./backend
 
-    - name: Build Frontend Docker image  
+    # Build da imagem Docker do Frontend
+    - name: Build Frontend
       run: |
-        echo "⚛️ Buildando Frontend..."
         docker build -t contacts-frontend-homolog:latest \
           --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api \
           ./frontend
 
+    # Deploy das aplicações no ambiente de homologação
     - name: Deploy para homologação
       run: |
-        echo "🚀 Fazendo deploy para homologação..."
-        
-        # Parar containers antigos
+        # Para e remove containers existentes
         docker stop contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
         docker rm contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
 
-        # PostgreSQL
+        # Inicia o banco de dados PostgreSQL
         docker run --restart unless-stopped -d --name contacts-db-homolog \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_DEV }} \
           -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEV }} \
@@ -212,9 +250,10 @@ jobs:
           -v contacts_data_homolog:/var/lib/postgresql/data \
           postgres:13-alpine
 
+        # Aguarda inicialização do banco
         sleep 15
 
-        # Backend
+        # Inicia o Backend
         docker run --restart unless-stopped -d --name contacts-backend-homolog \
           -p ${{ secrets.BACKEND_PORT_DEV }}:${{ secrets.BACKEND_PORT_DEV }} \
           --env PORT=${{ secrets.BACKEND_PORT_DEV }} \
@@ -224,32 +263,29 @@ jobs:
           --link contacts-db-homolog:contacts-db-homolog \
           contacts-backend-homolog:latest
 
-        # Frontend  
+        # Inicia o Frontend
         docker run --restart unless-stopped -d --name contacts-frontend-homolog \
           -p 80:80 \
           --link contacts-backend-homolog:app \
           contacts-frontend-homolog:latest
 
+    # =========================================================================
+    # VERIFICAÇÃO E LIMPEZA
+    # =========================================================================
+    
+    # Verifica o status do deploy
     - name: Verificar deploy
       run: |
         echo "📊 Status do deploy:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         
-        FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-        BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-        
         echo ""
         echo "🎉 Deploy de homologação concluído!"
         echo "📦 Versões deployadas:"
-        echo "   Frontend: $FRONTEND_VERSION"
-        echo "   Backend: $BACKEND_VERSION"
-        echo "   Tipo: ${{ steps.version-type.outputs.description }}"
-        echo ""
-        echo "🔄 Próximos passos:"
-        echo "   1. ✅ Testar a aplicação no ambiente de homologação"
-        echo "   2. ✅ Fazer o merge manual do PR no GitHub"
-        echo "   3. ✅ As versões irão automaticamente para a branch develop"
+        echo "   Frontend: ${{ steps.tag.outputs.frontend_version }}"
+        echo "   Backend: ${{ steps.tag.outputs.backend_version }}"
+        echo "   Tag: ${{ steps.tag.outputs.tag_name }}"
 
+    # Limpa imagens não utilizadas para economizar espaço
     - name: Limpeza
-      run: |
-        docker image prune -f || true
+      run: docker image prune -f || true
