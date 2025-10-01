@@ -1,11 +1,11 @@
-name: (CI/CD) Deploy Para Ambiente de Homologação
-
 # =========================================================================
 # WORKFLOW: Deploy para Ambiente de Homologação
 # =========================================================================
 # Este workflow é executado quando um PR é aberto para a branch develop.
 # Realiza o versionamento automático, build e deploy da aplicação.
 # =========================================================================
+
+name: (CI/CD) Deploy Para Ambiente de Homologação
 
 on:
   pull_request:
