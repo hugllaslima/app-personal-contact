@@ -31,7 +31,7 @@ jobs:
       with: 
         fetch-depth: 0  # Histórico completo para versionamento
         clean: true
-        token: ${{ secrets.PAT_TOKEN }}
+        token: ${{ secrets.PAT_TOKEN_DEV }}
 
     # Configura o Git para realizar commits automatizados
     - name: Configurar Git
