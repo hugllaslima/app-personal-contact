@@ -140,7 +140,7 @@ jobs:
         fi
 
     # Aplica o versionamento no backend
-    - name: Versionamento Backend (${{ steps.version-type.outputs.description }})
+    - name: Versionamento Backend
       working-directory: ./backend
       run: |
         echo "📋 Aplicando versionamento no backend..."
