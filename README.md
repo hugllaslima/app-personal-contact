@@ -25,10 +25,10 @@ O projeto segue uma arquitetura de três camadas:
 ### Diagrama de Arquitetura
 
 ```
-┌─────────────┐       ┌─────────────┐       ┌─────────────┐
-│   Frontend  │       │   Backend   │       │  Database   │
-│    (Nginx)  │ ────▶ │   (Flask)   │ ────▶ │ (PostgreSQL)│
-└─────────────┘       └─────────────┘       └─────────────┘
+┌─────────────┐        ┌─────────────┐        ┌──────────────┐
+│  Frontend   │        │   Backend   │        │   Database   │
+│  (Nginx)    │ ────▶ │   (Flask)   │  ────▶ │ (PostgreSQL) │
+└─────────────┘        └─────────────┘        └──────────────┘
 ```
 
 ## 🚀 Tecnologias Utilizadas
@@ -40,6 +40,7 @@ O projeto segue uma arquitetura de três camadas:
 - **PostgreSQL**: Banco de dados relacional
 - **Gunicorn**: Servidor WSGI para produção
 - **Prometheus Client**: Monitoramento e métricas
+- **Flask-JWT-Extended**: Autenticação e autorização via tokens JWT
 
 ### Frontend
 - **HTML5**
@@ -50,13 +51,19 @@ O projeto segue uma arquitetura de três camadas:
 ### DevOps
 - **Docker & Docker Compose**: Containerização e orquestração
 - **GitHub Actions**: CI/CD para deploy automático
+- **AWS**: Infraestrutura em nuvem para produção
+- **Bump2version**: Controle de versionamento semântico
 
 ## 🔧 Requisitos
 
 - Docker
 - Docker Compose
+- Git
+- Acesso à AWS (para deploy em produção)
 
 ## 📦 Instalação e Execução
+
+### Configuração Inicial
 
 1. Clone o repositório:
    ```bash
@@ -64,41 +71,106 @@ O projeto segue uma arquitetura de três camadas:
    cd app-personal-contact
    ```
 
-2. Execute a aplicação com Docker Compose:
+2. Crie um arquivo `.env` baseado no `.env.example`:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Configure as variáveis de ambiente no arquivo `.env` (veja a seção "Variáveis de Ambiente")
+
+### Execução Local com Docker
+
+1. Execute a aplicação com Docker Compose:
    ```bash
    docker-compose up --build -d
    ```
 
-3. Acesse a aplicação:
+2. Acesse a aplicação:
    - Frontend: http://localhost
    - API: http://localhost/api/contacts
 
-## 📚 Variáveis 
+### Verificação da Instalação
 
-O “JWT_SECRET” é uma chave secreta usada para "assinar" e verificar os tokens JWT (JSON Web Token). É como uma senha que apenas o seu backend conhece.Abaixo seguem dois comandos para que os valores devam ser gerados em seu desktop, assim, utilizando o valor gerado em sua maquina, no “secrets”. Caso esteja utilizando Linux ou Windows “com Python”, abaixo segue os dois modos para gerar o valor para se utilizar nesta variável
+Para verificar se todos os serviços estão funcionando corretamente:
 
-Método 1: Com OpenSSL (mais comum no Linux)
-```
-echo "JWT_SECRET_DEV: $(openssl rand -hex 64)"
-echo "JWT_SECRET_PROD: $(openssl rand -hex 64)"
+```bash
+docker-compose ps
 ```
 
-Método 2: Com Python (geralmente já vem instalado)
+## 🔒 Variáveis de Ambiente
+
+A aplicação utiliza variáveis de ambiente para configuração. Crie um arquivo `.env` baseado no `.env.example` fornecido.
+
+### Variáveis Essenciais
+
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| POSTGRES_DB | Nome do banco de dados | contacts_db |
+| POSTGRES_USER | Usuário do PostgreSQL | app_user |
+| POSTGRES_PASSWORD | Senha do PostgreSQL | *****secure_password***** |
+| DATABASE_URL | URL de conexão com o banco | postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB} |
+| JWT_SECRET | Chave para assinatura de tokens JWT | *****chave_secreta_gerada***** |
+| FLASK_ENV | Ambiente de execução (development/production) | production |
+| FLASK_DEBUG | Modo debug (0/1) | 0 |
+
+### Variáveis para CI/CD e Deploy
+
+#### Ambiente de Desenvolvimento (Proxmox VE)
+
+| Variável | Descrição | Uso |
+|----------|-----------|-----|
+| PAT_TOKEN_DEV | Token de acesso pessoal para desenvolvimento | GitHub Secrets |
+| BACKEND_PORT_DEV | Porta do backend em desenvolvimento | GitHub Secrets |
+| POSTGRES_USER_DEV | Usuário do PostgreSQL para desenvolvimento | GitHub Secrets |
+| POSTGRES_PASSWORD_DEV | Senha do PostgreSQL para desenvolvimento | GitHub Secrets |
+| POSTGRES_DB_DEV | Nome do banco de dados para desenvolvimento | GitHub Secrets |
+| JWT_SECRET_DEV | Chave JWT para desenvolvimento | GitHub Secrets |
+| JWT_EXPIRES_IN_DEV | Tempo de expiração do JWT em desenvolvimento | GitHub Secrets |
+
+#### Ambiente de Produção (AWS)
+
+| Variável | Descrição | Uso |
+|----------|-----------|-----|
+| PAT_TOKEN_PROD | Token de acesso pessoal para produção | GitHub Secrets |
+| AWS_ACCESS_KEY_ID_PROD | Chave de acesso AWS para produção | GitHub Secrets |
+| AWS_SECRET_ACCESS_KEY_PROD | Chave secreta AWS para produção | GitHub Secrets |
+| AWS_REGION_PROD | Região AWS para produção | GitHub Secrets |
+| ECR_REPOSITORY_BACKEND_PROD | Repositório ECR para backend em produção | GitHub Secrets |
+| ECR_REPOSITORY_FRONTEND_PROD | Repositório ECR para frontend em produção | GitHub Secrets |
+| EC2_HOST_PROD | Host EC2 para produção | GitHub Secrets |
+| BACKEND_PORT_PROD | Porta do backend em produção | GitHub Secrets |
+| POSTGRES_USER_PROD | Usuário do PostgreSQL para produção | GitHub Secrets |
+| POSTGRES_PASSWORD_PROD | Senha do PostgreSQL para produção | GitHub Secrets |
+| POSTGRES_DB_PROD | Nome do banco de dados para produção | GitHub Secrets |
+| JWT_SECRET_PROD | Chave JWT para produção | GitHub Secrets |
+| JWT_EXPIRES_IN_PROD | Tempo de expiração do JWT em produção | GitHub Secrets |
+
+### Geração de Chaves Seguras
+
+O JWT_SECRET é uma chave crítica para segurança. Gere valores fortes usando:
+
+**Método 1: Com OpenSSL (Linux/macOS)**
+```bash
+openssl rand -hex 64
 ```
-$ echo "JWT_SECRET_DEV: $(python3 -c "import secrets; print(secrets.token_hex(64))")"
-$ echo "JWT_SECRET_PROD: $(python3 -c "import secrets; print(secrets.token_hex(64))")"
+
+**Método 2: Com Python**
+```bash
+python3 -c "import secrets; print(secrets.token_hex(64))"
 ```
 
 ## 📚 API Endpoints
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/api/contacts` | Lista todos os contatos |
-| GET | `/api/contacts?name=termo` | Pesquisa contatos por nome |
-| GET | `/api/contacts/{id}` | Obtém um contato específico |
-| POST | `/api/contacts` | Cria um novo contato |
-| PUT | `/api/contacts/{id}` | Atualiza um contato existente |
-| DELETE | `/api/contacts/{id}` | Remove um contato |
+| Método | Endpoint | Descrição | Autenticação |
+|--------|----------|-----------|--------------|
+| GET | `/api/contacts` | Lista todos os contatos | Requerida |
+| GET | `/api/contacts?name=termo` | Pesquisa contatos por nome | Requerida |
+| GET | `/api/contacts/{id}` | Obtém um contato específico | Requerida |
+| POST | `/api/contacts` | Cria um novo contato | Requerida |
+| PUT | `/api/contacts/{id}` | Atualiza um contato existente | Requerida |
+| DELETE | `/api/contacts/{id}` | Remove um contato | Requerida |
+| POST | `/api/auth/login` | Autenticação de usuário | Não requerida |
+| POST | `/api/auth/register` | Registro de novo usuário | Não requerida |
 
 ### Exemplo de Requisição (POST)
 
@@ -110,6 +182,16 @@ $ echo "JWT_SECRET_PROD: $(python3 -c "import secrets; print(secrets.token_hex(6
 }
 ```
 
+### Autenticação
+
+A API utiliza autenticação JWT. Para acessar endpoints protegidos:
+
+1. Obtenha um token via `/api/auth/login`
+2. Inclua o token no header de requisições:
+   ```
+   Authorization: Bearer seu_token_jwt
+   ```
+
 ## 📊 Monitoramento
 
 A aplicação inclui métricas do Prometheus acessíveis em:
@@ -120,28 +202,82 @@ http://localhost/api/metrics
 Métricas disponíveis:
 - `http_requests_total`: Total de requisições HTTP por método, endpoint e código de status
 - `contacts_total`: Número total de contatos no banco de dados
+- `http_request_duration_seconds`: Tempo de resposta das requisições
+- `http_request_exceptions_total`: Total de exceções ocorridas
 
-## 🔒 Variáveis de Ambiente
+## 🚢 CI/CD e Deploy
 
-As seguintes variáveis de ambiente podem ser configuradas no arquivo `.env`:
+O projeto utiliza GitHub Actions para integração contínua e deploy automático.
 
-| Variável | Descrição | Valor Padrão |
-|----------|-----------|--------------|
-| POSTGRES_DB | Nome do banco de dados | contacts_db |
-| POSTGRES_USER | Usuário do PostgreSQL | myuser |
-| POSTGRES_PASSWORD | Senha do PostgreSQL | mysupersecretpassword |
-| DATABASE_URL | URL de conexão com o banco | postgresql://myuser:mysupersecretpassword@db:5432/contacts_db |
+### Workflows Disponíveis
 
-## 🚢 Deploy
+- **deploy-develop.yml**: Deploy para ambiente de desenvolvimento
+  - Gatilho: Push para branch `develop`
+  - Infraestrutura: VM no Proxmox VE
+  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para ambiente de desenvolvimento
 
-O projeto inclui workflows do GitHub Actions para deploy automático:
+- **deploy-production.yml**: Deploy para ambiente de produção
+  - Gatilho: Push para branch `main`
+  - Infraestrutura: AWS (ECR + EC2)
+  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para AWS
 
-- `.github/workflows/deploy-develop.yml`: Deploy para ambiente de desenvolvimento
-- `.github/workflows/deploy-production.yml`: Deploy para ambiente de produção
+### Configuração para Deploy
+
+Para configurar o deploy automático:
+
+1. Configure os secrets necessários no GitHub para **desenvolvimento**:
+   - PAT_TOKEN_DEV
+   - BACKEND_PORT_DEV
+   - POSTGRES_USER_DEV
+   - POSTGRES_PASSWORD_DEV
+   - POSTGRES_DB_DEV
+   - JWT_SECRET_DEV
+   - JWT_EXPIRES_IN_DEV
+
+2. Configure os secrets necessários no GitHub para **produção**:
+   - PAT_TOKEN_PROD
+   - AWS_ACCESS_KEY_ID_PROD
+   - AWS_SECRET_ACCESS_KEY_PROD
+   - AWS_REGION_PROD
+   - ECR_REPOSITORY_BACKEND_PROD
+   - ECR_REPOSITORY_FRONTEND_PROD
+   - EC2_HOST_PROD
+   - BACKEND_PORT_PROD
+   - POSTGRES_USER_PROD
+   - POSTGRES_PASSWORD_PROD
+   - POSTGRES_DB_PROD
+   - JWT_SECRET_PROD
+   - JWT_EXPIRES_IN_PROD
+
+3. Certifique-se de que as permissões AWS estão corretamente configuradas
+
+### Versionamento
+
+O projeto utiliza `bump2version` para controle de versões semânticas:
+
+- Versões de desenvolvimento: `X.Y.Z.devN`
+- Versões de produção: `X.Y.Z`
+
+## 🛡️ Segurança
+
+### Boas Práticas Implementadas
+
+1. **Variáveis de Ambiente**: Todas as credenciais e configurações sensíveis são armazenadas em variáveis de ambiente
+2. **Autenticação JWT**: Proteção de endpoints com tokens JWT
+3. **HTTPS**: Configuração de HTTPS em produção
+4. **Sanitização de Inputs**: Validação e sanitização de todas as entradas de usuário
+5. **Logs Seguros**: Logs estruturados sem informações sensíveis
+
+### Recomendações para Produção
+
+1. Configure um domínio personalizado com certificado SSL
+2. Implemente rate limiting para prevenir ataques de força bruta
+3. Configure backups automáticos do banco de dados
+4. Monitore logs e métricas regularmente
 
 ## 🧪 Desenvolvimento
 
-Para desenvolvimento local:
+### Ambiente Local
 
 1. Inicie os containers:
    ```bash
@@ -157,6 +293,45 @@ Para desenvolvimento local:
    ```bash
    docker-compose logs -f
    ```
+
+### Testes
+
+Execute os testes automatizados:
+
+```bash
+docker-compose exec backend pytest
+```
+
+### Fluxo de Trabalho Git
+
+1. Crie uma branch para sua feature:
+   ```bash
+   git checkout -b feature/nome-da-feature
+   ```
+
+2. Faça commits seguindo o padrão Conventional Commits:
+   ```bash
+   git commit -m "feat: adiciona nova funcionalidade"
+   ```
+
+3. Envie para o repositório remoto:
+   ```bash
+   git push origin feature/nome-da-feature
+   ```
+
+4. Crie um Pull Request para a branch `develop`
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas! Para contribuir:
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-funcionalidade`)
+3. Faça commit das suas alterações (`git commit -m 'feat: adiciona nova funcionalidade'`)
+4. Faça push para a branch (`git push origin feature/nova-funcionalidade`)
+5. Abra um Pull Request
+
+Por favor, certifique-se de atualizar os testes conforme apropriado e seguir o código de conduta do projeto.
 
 ## 📝 Licença
 
