@@ -1,3 +1,5 @@
+## [Unreleased]
+
 # Changelog
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
@@ -14,7 +16,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * **config:** Configuração inicial do sistema de versionamento ([0000000](https://github.com/hugllaslima/app-personal-contact/commit/0000000))
 
-## v1.1.0a0 (2025-10-01)
+## v## [Unreleased] (2025-10-01)
 
 ### Feat
 
