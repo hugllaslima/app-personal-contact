@@ -128,7 +128,7 @@ jobs:
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
-        pip install bump2version commitizen
+        pip install bump2version
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt
         fi
@@ -137,13 +137,22 @@ jobs:
     - name: Versionamento Backend
       working-directory: ./backend
       run: |
-        # Extrai a versão atual do pyproject.toml
+        echo "📋 Aplicando versionamento no backend..."
+        
+        # Verificar versão atual
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
+        echo "📦 Versão atual: $CURRENT_VERSION"
         
-        # Aplica o versionamento usando commitizen
-        python -m commitizen bump --increment ${{ steps.version-type.outputs.type }} --no-verify --yes
+        # Verificar se CHANGELOG tem a linha necessária
+        if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
+          echo "⚠️ Adicionando seção Unreleased ao CHANGELOG..."
+          echo -e "## [Unreleased]\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
+        fi
         
-        # Verifica a nova versão
+        # Aplicar versionamento com bump2version (simples e funcional)
+        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
+        
+        # Verificar nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         echo "✅ Nova versão do backend: $NEW_VERSION"
         
