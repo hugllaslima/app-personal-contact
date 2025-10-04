@@ -5,7 +5,7 @@ FROM nginx:alpine
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copia a sua configuração personalizada do Nginx
-COPY nginx.conf.template /etc/nginx/conf.d/contact-app.conf.template
+COPY nginx.conf.template /etc/nginx/templates/contact-app.conf.template
 
 # Copia os arquivos estáticos do frontend da pasta 'src' para o diretório de serviço do Nginx
 COPY src/ /usr/share/nginx/html
