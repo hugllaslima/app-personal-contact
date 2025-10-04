@@ -258,8 +258,8 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # Tag e push da imagem como latest
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        # docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        # docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
     # Build, tag e push da imagem Frontend para ECR
     - name: Build e push Frontend para ECR
@@ -277,8 +277,8 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         
         # Tag e push da imagem como latest
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        # docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        # docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
     # =========================================================================
     # DEPLOY NA INSTÂNCIA EC2
@@ -286,14 +286,16 @@ jobs:
     
     # Deploy das imagens na instância EC2
     - name: Deploy na instância EC2
+      env:
+        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }} 
       run: |
         # Configurar AWS CLI
         aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
-        
+
         # Para e remove containers existentes
         docker stop contacts-frontend-production contacts-backend-production contacts-db-production || true
         docker rm contacts-frontend-production contacts-backend-production contacts-db-production || true
-        
+
         # Inicia o banco de dados PostgreSQL
         docker run --restart unless-stopped -d --name contacts-db-production \
           -e POSTGRES_USER=${{ secrets.POSTGRES_USER_PROD }} \
@@ -301,12 +303,12 @@ jobs:
           -e POSTGRES_DB=${{ secrets.POSTGRES_DB_PROD }} \
           -v contacts_data_production:/var/lib/postgresql/data \
           postgres:13-alpine
-        
+
         # Aguarda inicialização do banco
         sleep 15
-        
-        # Puxa e inicia o Backend do ECR
-        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:latest
+
+        # Puxa e inicia o Backend do ECR (AGORA USANDO A TAG VERSIONADA)
+        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
         docker run --restart unless-stopped -d --name contacts-backend-production \
           -p ${{ secrets.BACKEND_PORT_PROD }}:${{ secrets.BACKEND_PORT_PROD }} \
           --env PORT=${{ secrets.BACKEND_PORT_PROD }} \
@@ -314,14 +316,14 @@ jobs:
           --env JWT_SECRET=${{ secrets.JWT_SECRET_PROD }} \
           --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_PROD }} \
           --link contacts-db-production:contacts-db-production \
-          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:latest
-        
-        # Puxa e inicia o Frontend do ECR
-        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:latest
+          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
+
+        # Puxa e inicia o Frontend do ECR (AGORA USANDO A TAG VERSIONADA)
+        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
         docker run --restart unless-stopped -d --name contacts-frontend-production \
           -p 80:80 \
           --link contacts-backend-production:app \
-          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:latest
+          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
 
     # =========================================================================
     # VERIFICAÇÃO E LIMPEZA
