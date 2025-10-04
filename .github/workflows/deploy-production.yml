@@ -323,6 +323,7 @@ jobs:
         docker run --restart unless-stopped -d --name contacts-frontend-production \
           -p 80:80 \
           --link contacts-backend-production:app \
+          --env BACKEND_HOST=app \
           ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
 
     # =========================================================================
