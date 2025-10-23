@@ -11,9 +11,7 @@ on:
   pull_request:
     branches:
     - main
-  push:
-    branches:
-    - main
+    types: [opened, synchronize, reopened]
 
 jobs:
   build-and-deploy:
@@ -50,9 +48,6 @@ jobs:
     - name: Configurar branch local
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
-        if [ -z "$BRANCH_NAME" ]; then
-          BRANCH_NAME="${{ github.ref_name }}"
-        fi
         git fetch origin
         git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
         git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
@@ -237,10 +232,6 @@ jobs:
     - name: Push e criar tag
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
-        if [ -z "$BRANCH_NAME" ]; then
-          BRANCH_NAME="${{ github.ref_name }}"
-        fi
-        
         git push origin "$BRANCH_NAME"
         
         git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}
@@ -278,8 +269,36 @@ jobs:
     # BUILD E PUSH PARA ECR
     # =========================================================================
     
+    # Verifica se a versão já existe no ECR
+    - name: Verificar se versão já existe no ECR
+      id: check-version
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY_BACKEND: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
+        ECR_REPOSITORY_FRONTEND: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
+        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }}
+      run: |
+        # Verifica se a imagem do backend já existe
+        if aws ecr describe-images --repository-name $ECR_REPOSITORY_BACKEND --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
+          echo "⚠️ Versão $IMAGE_TAG já existe no ECR para backend"
+          echo "backend_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Versão $IMAGE_TAG não existe no ECR para backend"
+          echo "backend_exists=false" >> $GITHUB_OUTPUT
+        fi
+        
+        # Verifica se a imagem do frontend já existe
+        if aws ecr describe-images --repository-name $ECR_REPOSITORY_FRONTEND --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
+          echo "⚠️ Versão $IMAGE_TAG já existe no ECR para frontend"
+          echo "frontend_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Versão $IMAGE_TAG não existe no ECR para frontend"
+          echo "frontend_exists=false" >> $GITHUB_OUTPUT
+        fi
+    
     # Build, tag e push da imagem Backend para ECR
     - name: Build e push Backend para ECR
+      if: steps.check-version.outputs.backend_exists == 'false'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
@@ -297,6 +316,7 @@ jobs:
 
     # Build, tag e push da imagem Frontend para ECR
     - name: Build e push Frontend para ECR
+      if: steps.check-version.outputs.frontend_exists == 'false'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
