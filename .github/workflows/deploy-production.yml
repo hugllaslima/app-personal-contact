@@ -11,11 +11,16 @@ on:
   pull_request:
     branches:
     - main
+  push:
+    branches:
+    - main
 
 jobs:
   build-and-deploy:
     environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
+    permissions:
+      contents: write
 
     steps:
     # =========================================================================
@@ -45,6 +50,9 @@ jobs:
     - name: Configurar branch local
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
+        if [ -z "$BRANCH_NAME" ]; then
+          BRANCH_NAME="${{ github.ref_name }}"
+        fi
         git fetch origin
         git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
         git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
@@ -173,11 +181,14 @@ jobs:
     - name: Sanitizar CHANGELOG do backend para produção
       working-directory: ./backend
       run: |
-        # Corrige cabeçalho malformatado, se existir
         sed -i 's/^## v## \[Unreleased\]/## \[Unreleased\]/' CHANGELOG.md || true
-        # Remove linhas que mencionam releases de develop
         sed -i '/Deploy versão .*develop.*/d' CHANGELOG.md || true
-        
+    - name: Sincronizar .bumpversion.cfg com versão estável
+      working-directory: ./backend
+      run: |
+        STABLE_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+        sed -i -E "s/^current_version *= *.*/current_version = ${STABLE_VERSION}/" .bumpversion.cfg || true
+
     # =========================================================================
     # GERENCIAMENTO DE TAGS
     # =========================================================================
@@ -226,11 +237,12 @@ jobs:
     - name: Push e criar tag
       run: |
         BRANCH_NAME="${{ github.head_ref }}"
+        if [ -z "$BRANCH_NAME" ]; then
+          BRANCH_NAME="${{ github.ref_name }}"
+        fi
         
-        # Push para a branch do PR
         git push origin "$BRANCH_NAME"
         
-        # Criar tag local (será enviada para o repositório quando merger)
         git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}
 
         🚀 Deploy ${{ steps.version-type.outputs.description }}
