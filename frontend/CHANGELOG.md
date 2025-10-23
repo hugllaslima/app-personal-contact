@@ -2,6 +2,66 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.1.8-develop.1 (2025-10-23)
+
+
+### ✨ Novas Funcionalidades
+
+* **release:** Deploy versão 1.0.1-develop.10 / 1.0.11 ([fdc9b28](https://github.com/hugllaslima/app-personal-contact/commit/fdc9b2894e58174246c5362cc37b6ef4446ce828))
+* **release:** Deploy versão 1.0.1-develop.7 / 1.0.8 ([62d4e39](https://github.com/hugllaslima/app-personal-contact/commit/62d4e39f0d5b9a5d97dab8938708ffe21f1e8620))
+* **release:** Deploy versão 1.0.1-develop.8 / 1.0.9 ([1d9ccbc](https://github.com/hugllaslima/app-personal-contact/commit/1d9ccbcad3561c2a3027af14981bbd87b035309a))
+* **release:** Deploy versão 1.0.1-develop.9 / 1.0.10 ([75c41e8](https://github.com/hugllaslima/app-personal-contact/commit/75c41e8af4d6bf80caba4edf92eef96d84524de6))
+
+
+### 🔧 Manutenção
+
+* **release:** [skip ci] versionamento automático para develop ([92c2dee](https://github.com/hugllaslima/app-personal-contact/commit/92c2dee73106014af4f46d71d34ec1d94abce7d3))
+* **release:** 0.1.1 ([9bda00a](https://github.com/hugllaslima/app-personal-contact/commit/9bda00a8de08b739ef408df192cb67c1a4c037c2))
+* **release:** 0.1.1-develop.0 ([b089dcf](https://github.com/hugllaslima/app-personal-contact/commit/b089dcf6cd9a3f3755fbccb1d27eff15b028567c))
+* **release:** 0.1.1-develop.1 ([a4ca899](https://github.com/hugllaslima/app-personal-contact/commit/a4ca8995af939cea34a9eaa87ca67536fa93957a))
+* **release:** 0.1.1-develop.2 ([743c973](https://github.com/hugllaslima/app-personal-contact/commit/743c973a595a3eec73b7e6243576b9441ac28ddc))
+* **release:** 0.1.1-develop.3 ([a56f56e](https://github.com/hugllaslima/app-personal-contact/commit/a56f56edf2abe0d2d9d82577328e88e3a059e68f))
+* **release:** 0.1.2 ([5f87ccd](https://github.com/hugllaslima/app-personal-contact/commit/5f87ccd1a2ba631ffde26faa220e7c533c295e1e))
+* **release:** 0.1.3 ([7e7c89d](https://github.com/hugllaslima/app-personal-contact/commit/7e7c89dba24492f79b29d71a14d8ed55acf19877))
+* **release:** 0.1.4 ([f9a61c7](https://github.com/hugllaslima/app-personal-contact/commit/f9a61c7fd766c779498b8abae9d2c6a1a3fbaf31))
+* **release:** 0.1.5 ([78b79f5](https://github.com/hugllaslima/app-personal-contact/commit/78b79f5412c6df33cf595a82924e452c09bd5217))
+* **release:** 0.1.6 ([f2fb4c7](https://github.com/hugllaslima/app-personal-contact/commit/f2fb4c7a243efa08f6d98a6c0d9f881d9c4cd194))
+* **release:** 0.1.7 ([c8d2c09](https://github.com/hugllaslima/app-personal-contact/commit/c8d2c09edb77acca8738c7f766ccdeebd499bb46))
+* **release:** 0.1.8 ([2da65e3](https://github.com/hugllaslima/app-personal-contact/commit/2da65e3c9e7cc9e9f10ea515d2e8facef3850a1c))
+* **release:** 0.1.8-develop.0 ([5ffa7be](https://github.com/hugllaslima/app-personal-contact/commit/5ffa7bee36d36bd0690f176b77375712b5da916d))
+* **release:** 1.0.1-develop.0 ([de99d14](https://github.com/hugllaslima/app-personal-contact/commit/de99d14bcc4518726daebe3392211ffbcdc88d40))
+* **release:** 1.0.1-develop.1 ([49e6404](https://github.com/hugllaslima/app-personal-contact/commit/49e640402189dcd1ab1f63b5ccb690f7b0023cb7))
+* **release:** 1.0.1-develop.10 ([339a4e1](https://github.com/hugllaslima/app-personal-contact/commit/339a4e12e92dfaea8633854deea8f91e642eec24))
+* **release:** 1.0.1-develop.2 ([279ac72](https://github.com/hugllaslima/app-personal-contact/commit/279ac72de7b620272a3fdae7bebd2d3f27c658e1))
+* **release:** 1.0.1-develop.3 ([04ca7cf](https://github.com/hugllaslima/app-personal-contact/commit/04ca7cf98b97443afb1b067523f215635b2d461e))
+* **release:** 1.0.1-develop.4 ([c908fb2](https://github.com/hugllaslima/app-personal-contact/commit/c908fb2f7119fab098aa5b9264dcba1119433fd6))
+* **release:** 1.0.1-develop.5 ([7782cde](https://github.com/hugllaslima/app-personal-contact/commit/7782cde29fb5fd30aaf8a6b0db896f1324c0a1ee))
+* **release:** 1.0.1-develop.6 ([c14b9d6](https://github.com/hugllaslima/app-personal-contact/commit/c14b9d66f12d5e8565cbbf3a9b28c4cc4a84f7d6))
+* **release:** 1.0.1-develop.7 ([b62da47](https://github.com/hugllaslima/app-personal-contact/commit/b62da472e3308f4698dee3f4e9954e1c4e3ac934))
+* **release:** 1.0.1-develop.8 ([613f38d](https://github.com/hugllaslima/app-personal-contact/commit/613f38d3049eb5c9368e5540374e7e58d7194c28))
+* **release:** 1.0.1-develop.9 ([ff1d015](https://github.com/hugllaslima/app-personal-contact/commit/ff1d0155b697e091e9c0c240d6a6652adb528fca))
+* **release:** 1.0.1-develop.9 ([a2413ba](https://github.com/hugllaslima/app-personal-contact/commit/a2413ba323af94641d25cd08622794e11f12b836))
+* **release:** 1.0.10 ([48de270](https://github.com/hugllaslima/app-personal-contact/commit/48de270405eb5ca99e50b2ef83067a12d3a7017a))
+* **release:** 1.0.10 ([8146fd4](https://github.com/hugllaslima/app-personal-contact/commit/8146fd407bc1095f5c635e86051241116bcda30b))
+* **release:** 1.0.11 ([5eca292](https://github.com/hugllaslima/app-personal-contact/commit/5eca292641031c4c6c9837b4faa9596d0343c161))
+* **release:** 1.0.12 ([5a285c9](https://github.com/hugllaslima/app-personal-contact/commit/5a285c9fea0ccf8ce600caa321e4dcfeb3ce7148))
+* **release:** 1.0.5  ← Remover "bump version to" ([04ceae4](https://github.com/hugllaslima/app-personal-contact/commit/04ceae489069cab0601e207c3c7a376daac43791))
+* **release:** 1.0.6 ([4ea2728](https://github.com/hugllaslima/app-personal-contact/commit/4ea2728e17da32b7c9f30dd376d14e1eb492aad3))
+* **release:** 1.0.7 ([31ab39a](https://github.com/hugllaslima/app-personal-contact/commit/31ab39a8358abf5d303813a3fd07638e4026e68d))
+* **release:** 1.0.8 ([a5c941d](https://github.com/hugllaslima/app-personal-contact/commit/a5c941de1945da33fa67f77924e18b6a5d6393d7))
+* **release:** 1.0.9 ([0397c5c](https://github.com/hugllaslima/app-personal-contact/commit/0397c5cc351c48fc9ce5a0ac125e1fbe0aa989a3))
+* **release:** 1.1.0-develop.0 ([498da75](https://github.com/hugllaslima/app-personal-contact/commit/498da75ab817d2a1d5a9e98bfd3b9ae57337af9d))
+* **release:** 1.1.0-develop.0 ([0df2dbc](https://github.com/hugllaslima/app-personal-contact/commit/0df2dbc344d5f954cabe9742558cb80c4260a89b))
+* **release:** 1.1.0-develop.1 ([98e70cd](https://github.com/hugllaslima/app-personal-contact/commit/98e70cd7b1d81b7af5955d356185be5447fa7ee1))
+* **release:** 1.1.0-develop.2 ([4a587a1](https://github.com/hugllaslima/app-personal-contact/commit/4a587a1d3527a4c62b57620d1e6d9fc81b3c5968))
+* **release:** bump backend to 1.0.13 ([54541bc](https://github.com/hugllaslima/app-personal-contact/commit/54541bc19e8882fc9d06b0c3c02c813da0cc2b12))
+* **release:** bump backend to 1.0.14 ([820d958](https://github.com/hugllaslima/app-personal-contact/commit/820d95876d25a237a8686afd28efbb066931e99a))
+* **release:** bump backend to 1.0.15 ([68c52d0](https://github.com/hugllaslima/app-personal-contact/commit/68c52d0ad287d52af6fc5e21fa8b6e26055273c6))
+* **release:** bump version to 1.0.1 ([467c936](https://github.com/hugllaslima/app-personal-contact/commit/467c9369eda62867ba2459497e3d8262ebdd8207))
+* **release:** bump version to 1.0.2 ([0424d11](https://github.com/hugllaslima/app-personal-contact/commit/0424d11e409348258a33a8ded3dc3566b83684d1))
+* **release:** bump version to 1.0.3 ([e3bee05](https://github.com/hugllaslima/app-personal-contact/commit/e3bee057b9d07acdbfc842535798202ac8ca6350))
+* **release:** bump version to 1.0.4 ([088d1a8](https://github.com/hugllaslima/app-personal-contact/commit/088d1a81e51df5bbb6567bcb8cea05ae740d576b))
+
 ### 0.1.8-develop.0 (2025-10-23)
 
 
