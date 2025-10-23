@@ -343,4 +343,4 @@ Desenvolvido por Hugllas Lima
 
 ---
 
-Feito com ❤️ e ☕!
+Feito com ❤️ e ☕
