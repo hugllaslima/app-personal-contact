@@ -21,7 +21,8 @@ jobs:
     environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
     # Evita loop infinito: não executa se o commit foi feito pelo GitHub Actions
-    if: ${{ !contains(github.event.head_commit.message, 'chore(release): bump versions') && !contains(github.event.head_commit.author.name, 'github-actions') }}
+    # E só executa se estivermos realmente na branch main
+    if: ${{ github.ref_name == 'main' && !contains(github.event.head_commit.message, 'chore(release): bump versions') && !contains(github.event.head_commit.author.name, 'github-actions') }}
     permissions:
       contents: write
 
