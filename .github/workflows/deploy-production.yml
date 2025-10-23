@@ -12,6 +12,9 @@ on:
     branches:
     - main
     types: [opened, synchronize, reopened]
+  push:
+    branches:
+    - main
 
 jobs:
   build-and-deploy:
@@ -119,6 +122,7 @@ jobs:
 
     # Aplica o versionamento no frontend
     - name: Versionamento Frontend
+      if: github.event_name == 'push'
       working-directory: ./frontend
       run: npm run release -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
 
@@ -138,29 +142,27 @@ jobs:
 
     # Aplica o versionamento no backend
     - name: Versionamento Backend
+      if: github.event_name == 'push'
       working-directory: ./backend
       run: |
         echo "📋 Aplicando versionamento no backend..."
         
-        # Verificar versão atual
         CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         echo "📦 Versão atual: $CURRENT_VERSION"
         
-        # Verificar se CHANGELOG tem a linha necessária
         if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
           echo "⚠️ Adicionando seção Unreleased ao CHANGELOG..."
           echo -e "## [Unreleased]\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
         fi
         
-        # Aplicar versionamento com bump2version (simples e funcional)
         bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
         
-        # Verificar nova versão
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
         echo "✅ Nova versão do backend: $NEW_VERSION"
 
     # Normaliza a versão do backend para estável (sem sufixo pré-release)
     - name: Normalizar versão Backend para produção
+      if: github.event_name == 'push'
       working-directory: ./backend
       run: |
         NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
@@ -172,13 +174,14 @@ jobs:
           echo "✅ Versão já estável: $STABLE_VERSION"
         fi
         
-    # Sanitiza o CHANGELOG do backend para produção (remove entradas de develop)
     - name: Sanitizar CHANGELOG do backend para produção
+      if: github.event_name == 'push'
       working-directory: ./backend
       run: |
         sed -i 's/^## v## \[Unreleased\]/## \[Unreleased\]/' CHANGELOG.md || true
         sed -i '/Deploy versão .*develop.*/d' CHANGELOG.md || true
     - name: Sincronizar .bumpversion.cfg com versão estável
+      if: github.event_name == 'push'
       working-directory: ./backend
       run: |
         STABLE_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
@@ -190,16 +193,12 @@ jobs:
     
     # Cria tag baseada nas versões atualizadas
     - name: Criar tag
+      if: github.event_name == 'push'
       id: tag
       run: |
-        # Extrai as versões atualizadas
         FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
         BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-        
-        # Define o nome da tag baseado na versão do frontend
         TAG_NAME="v${FRONTEND_VERSION}"
-        
-        # Exporta as variáveis para uso em outros steps
         echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
         echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
         echo "backend_version=$BACKEND_VERSION" >> $GITHUB_OUTPUT
@@ -208,37 +207,20 @@ jobs:
     # COMMIT E PUSH
     # =========================================================================
     
-    # Realiza commit das alterações de versionamento
     - name: Commit das alterações
+      if: github.event_name == 'push'
       run: |
         git add .
         if ! git diff --cached --quiet; then
-          # Commit seguindo Conventional Commits
-          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}
-
-          ${{ steps.version-type.outputs.description }}
-          
-          📦 Versionamento:
-          • Frontend: ${{ steps.tag.outputs.frontend_version }}
-          • Backend: ${{ steps.tag.outputs.backend_version }}
-          • Ambiente: ${{ steps.version-type.outputs.release_type }}
-          • Tipo: ${{ steps.version-type.outputs.type }}
-          • Branch: ${{ github.head_ref }}
-          
-          Co-authored-by: GitHub Actions <actions@github.com>"
+          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}"
         fi
 
-    # Push das alterações e criação da tag
     - name: Push e criar tag
+      if: github.event_name == 'push'
       run: |
-        BRANCH_NAME="${{ github.head_ref }}"
+        BRANCH_NAME="${{ github.ref_name }}"
         git push origin "$BRANCH_NAME"
-        
-        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}
-
-        🚀 Deploy ${{ steps.version-type.outputs.description }}
-        • Frontend: ${{ steps.tag.outputs.frontend_version }}
-        • Backend: ${{ steps.tag.outputs.backend_version }}
+        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}"
         • Ambiente: Produção (${{ steps.version-type.outputs.release_type }})
         • Data: $(date '+%d/%m/%Y %H:%M')
         
@@ -298,25 +280,18 @@ jobs:
     
     # Build, tag e push da imagem Backend para ECR
     - name: Build e push Backend para ECR
-      if: steps.check-version.outputs.backend_exists == 'false'
+      if: github.event_name == 'push' && steps.check-version.outputs.backend_exists == 'false'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
         IMAGE_TAG: ${{ steps.tag.outputs.tag_name }}
       run: |
-        # Build da imagem
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
-        
-        # Push da imagem com tag de versão
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        
-        # Tag e push da imagem como latest
-        # docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        # docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
     # Build, tag e push da imagem Frontend para ECR
     - name: Build e push Frontend para ECR
-      if: steps.check-version.outputs.frontend_exists == 'false'
+      if: github.event_name == 'push' && steps.check-version.outputs.frontend_exists == 'false'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
@@ -340,10 +315,10 @@ jobs:
     
     # Deploy das imagens na instância EC2
     - name: Deploy na instância EC2
+      if: github.event_name == 'push'
       env:
         IMAGE_TAG: ${{ steps.tag.outputs.tag_name }} 
       run: |
-        # Configurar AWS CLI
         aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
 
         # Para e remove containers existentes
