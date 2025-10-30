@@ -1,9 +1,12 @@
 # =========================================================================
 # WORKFLOW: Deploy para Ambiente de Produção
 # =========================================================================
-# Este workflow executa validações em PRs para a branch main,
-# e realiza versionamento, build e deploy apenas em push para main.
-# =========================================================================
+# Este workflow valida PRs direcionados à branch `main`.
+# Build e deploy usam imagens com tag `latest` (sem versionamento semântico).
+# Observação: as etapas de build/deploy estão condicionadas a eventos `push`.
+# Para acionar deploy em `push` para `main`, veja comentário na seção `on:`.
+# Requisitos: runner self-hosted com Docker e AWS CLI (para comandos `aws`).
+# ========================================================================= 
 
 name: (CI/CD) Deploy Ambiente de Produção
 
@@ -12,6 +15,12 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened]
+# ----------------------------------------------------------------------------
+  # OBS: Atualmente este workflow só é acionado em `pull_request` para `main`.
+  # Se desejar executar build e deploy em `push` para `main`, adicione:
+  # push:
+  #   branches: [main]
+  # --------------------------------------------------------------------------
 
 jobs:
   build-and-deploy:
@@ -21,14 +30,17 @@ jobs:
       contents: read
 
     steps:
+      # Faz checkout do código do repositório
       - name: Checkout do código
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Configura Docker Buildx para builds otimizados
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Configura credenciais AWS para ECR e CLI
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -36,10 +48,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
           aws-region: ${{ secrets.AWS_REGION_PROD }}
 
+      # Realiza login no Amazon ECR
       - name: Login no Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Build e push da imagem do backend (latest)
       - name: Build e push Backend para ECR (latest)
         if: github.event_name == 'push'
         env:
@@ -50,6 +64,7 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Build e push da imagem do frontend (latest)
       - name: Build e push Frontend para ECR (latest)
         if: github.event_name == 'push'
         env:
@@ -60,29 +75,22 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Realiza deploy na EC2 (db, backend, frontend)
       - name: Deploy na instância EC2
         if: github.event_name == 'push'
         env:
           IMAGE_TAG: latest
         run: |
           aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
-
-          # Para e remove containers existentes
           docker stop contacts-frontend-production contacts-backend-production contacts-db-production || true
           docker rm contacts-frontend-production contacts-backend-production contacts-db-production || true
-
-          # Inicia o banco de dados PostgreSQL
           docker run --restart unless-stopped -d --name contacts-db-production \
             -e POSTGRES_USER=${{ secrets.POSTGRES_USER_PROD }} \
             -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_PROD }} \
             -e POSTGRES_DB=${{ secrets.POSTGRES_DB_PROD }} \
             -v contacts_data_production:/var/lib/postgresql/data \
             postgres:13-alpine
-
-          # Aguarda inicialização do banco
           sleep 15
-
-          # Puxa e inicia o Backend do ECR (latest)
           docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
           docker run --restart unless-stopped -d --name contacts-backend-production \
             -p ${{ secrets.BACKEND_PORT_PROD }}:${{ secrets.BACKEND_PORT_PROD }} \
@@ -92,8 +100,6 @@ jobs:
             --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_PROD }} \
             --link contacts-db-production:contacts-db-production \
             ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
-
-          # Puxa e inicia o Frontend do ECR (latest)
           docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
           docker run --restart unless-stopped -d --name contacts-frontend-production \
             -p 80:80 \
@@ -101,10 +107,12 @@ jobs:
             --env BACKEND_HOST=app \
             ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
 
+      # Verifica containers ativos e portas expostas
       - name: Verificar deploy
         run: |
           echo "📊 Status do deploy:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
+      # Remove imagens não utilizadas para liberar espaço
       - name: Limpeza
         run: docker image prune -f || true

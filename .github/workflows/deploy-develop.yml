@@ -1,9 +1,12 @@
-# =========================================================================
+# ==============================================================================
 # WORKFLOW: Deploy para Ambiente de Homologação
-# =========================================================================
-# Este workflow executa validações em PRs para a branch develop,
-# e realiza versionamento, build e deploy apenas em push para develop.
-# =========================================================================
+# ==============================================================================
+# Este workflow valida PRs direcionados à branch `develop`.
+# Build e deploy usam imagens com tag `latest` (sem versionamento).
+# Observação: as etapas de build/deploy estão condicionadas a eventos `push`.
+# Para acionar deploy em `push` para `develop`, veja comentário na seção `on:`.
+# Requisitos: runner self-hosted com Docker instalado e privilégios de execução.
+# ==============================================================================
 
 name: (CI/CD) Deploy Para Ambiente de Homologação
 
@@ -11,6 +14,12 @@ on:
   pull_request:
     branches: [develop]
     types: [opened, synchronize, reopened]
+ # ------------------------------------------------------------------------------
+  # OBS: Atualmente este workflow só é acionado em `pull_request` para `develop`.
+  # Se desejar executar build e deploy em `push` para `develop`, adicione:
+  # push:
+  #   branches: [develop]
+  # -----------------------------------------------------------------------------
 
 jobs:
   build-and-deploy:
@@ -18,61 +27,33 @@ jobs:
     runs-on: [self-hosted, develop-runner]
 
     steps:
-    # =========================================================================
-    # PREPARAÇÃO DO AMBIENTE
-    # =========================================================================
-    
-    # Limpa o workspace para evitar conflitos com execuções anteriores
+    # Limpa workspace para evitar resquícios de execuções anteriores
     - name: Limpar workspace
       run: rm -rf ./* ./.* 2>/dev/null || true
 
-    # Checkout do código
+    # Faz checkout do código do repositório
     - name: Checkout do código
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    # Configura o Git para realizar commits automatizados
+    # Configura Git no runner
     - name: Configurar Git
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions Bot"
         git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN_DEV }}@github.com/${{ github.repository }}.git
-
-    # (Removido) Configuração de branch local e versionamento
-
-    # (Removido) Toda a lógica de análise de versionamento
-
-    # =========================================================================
-    # CONFIGURAÇÃO DE AMBIENTES
-    # =========================================================================
-    
-    # (Removido) Setup Python (não necessário para build Docker)
-
-    # (Removido) Setup Node (não necessário para build Docker)
-
-    # (Removido) Toda a etapa de versionamento do frontend
-
-    # (Removido) Toda a etapa de versionamento do backend
-        
-    # (Removido) Gerenciamento de tags
-
-    # (Removido) Commit e criação de tags
-
-    # =========================================================================
-    # BUILD E DEPLOY
-    # =========================================================================
     
     # Configura Docker Buildx para builds otimizados
     - name: Configurar Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    # Build da imagem Docker do Backend (apenas em push)
+    # Constrói imagem local do backend (tag latest)
     - name: Build Backend
       if: ${{ github.event_name == 'push' }}
       run: docker build -t contacts-backend-homolog:latest ./backend
 
-    # Build da imagem Docker do Frontend (apenas em push)
+    # Constrói imagem local do frontend (tag latest)
     - name: Build Frontend
       if: ${{ github.event_name == 'push' }}
       run: |
@@ -80,7 +61,7 @@ jobs:
           --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api \
           ./frontend
 
-    # Deploy das aplicações no ambiente de homologação (apenas em push)
+    # Realiza deploy no ambiente de homologação
     - name: Deploy para homologação
       if: ${{ github.event_name == 'push' }}
       run: |
@@ -106,18 +87,14 @@ jobs:
           --link contacts-backend-homolog:app \
           contacts-frontend-homolog:latest
 
-    # =========================================================================
-    # VERIFICAÇÃO E LIMPEZA
-    # =========================================================================
-    
-    # Verifica o status do deploy (apenas em push)
+    # Verifica containers ativos e portas expostas
     - name: Verificar deploy
       if: ${{ github.event_name == 'push' }}
       run: |
         echo "📊 Status do deploy:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
-    # Limpa imagens não utilizadas para economizar espaço (apenas em push)
+    # Remove imagens não utilizadas para liberar espaço
     - name: Limpeza
       if: ${{ github.event_name == 'push' }}
       run: docker image prune -f || true
