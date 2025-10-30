@@ -1,377 +1,138 @@
 # =========================================================================
 # WORKFLOW: Deploy para Ambiente de Produção
 # =========================================================================
-# Este workflow é executado quando um PR é aberto para a branch main.
-# Realiza o versionamento automático, build, push para ECR e deploy da aplicação.
-# =========================================================================
+# Este workflow valida PRs direcionados à branch `main`.
+# Build e deploy usam imagens com tag `latest` (sem versionamento semântico).
+# Observação: as etapas de build/deploy estão condicionadas a eventos `push`.
+# Para acionar deploy em `push` para `main`, veja comentário na seção `on:`.
+# Requisitos: runner self-hosted com Docker e AWS CLI (para comandos `aws`).
+# ========================================================================= 
 
 name: (CI/CD) Deploy Ambiente de Produção
 
 on:
   pull_request:
     branches:
-    - main
+      - main
     types: [opened, synchronize, reopened]
-  push:
-    branches:
-    - main
+# ----------------------------------------------------------------------------
+  # OBS: Atualmente este workflow só é acionado em `pull_request` para `main`.
+  # Se desejar executar build e deploy em `push` para `main`, adicione:
+  # push:
+  #   branches: [main]
+  # --------------------------------------------------------------------------
 
 jobs:
   build-and-deploy:
     environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
     permissions:
-      contents: write
+      contents: read
 
     steps:
-    # =========================================================================
-    # PREPARAÇÃO DO AMBIENTE
-    # =========================================================================
-    
-    # Limpa o workspace para evitar conflitos com execuções anteriores
-    - name: Limpar workspace
-      run: rm -rf ./* ./.* 2>/dev/null || true
+      # =========================================================================
+      # PREPARAÇÃO DO AMBIENTE
+      # =========================================================================
+      
+      # Limpa workspace para evitar resquícios de execuções anteriores
+      - name: Limpar workspace
+        run: rm -rf ./* ./.* 2>/dev/null || true
 
-    # Checkout do código com token de acesso para permitir commits
-    - name: Checkout do código
-      uses: actions/checkout@v4
-      with: 
-        fetch-depth: 0  # Histórico completo para versionamento
-        clean: true
-        token: ${{ secrets.PAT_TOKEN_PROD }}
+      # Faz checkout do código do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    # Configura o Git para realizar commits automatizados
-    - name: Configurar Git
-      run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions Bot"
-        git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN_PROD }}@github.com/${{ github.repository }}.git
+      # =========================================================================
+      # CONFIGURAÇÃO AWS E ECR
+      # ========================================================================= 
 
-    # Configura a branch local para trabalhar com a branch do PR
-    - name: Configurar branch local
-      run: |
-        BRANCH_NAME="${{ github.head_ref }}"
-        git fetch origin
-        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
-        git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
+      # Configura Docker Buildx para builds otimizados
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    # =========================================================================
-    # ANÁLISE DE VERSIONAMENTO
-    # =========================================================================
-    
-    # Determina o tipo de versionamento baseado no nome da branch
-    - name: Determinar tipo de versionamento
-      id: version-type
-      run: |
-        BRANCH_NAME="${{ github.head_ref }}"
+      # Configura credenciais AWS para ECR e CLI
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ secrets.AWS_REGION_PROD }}
+
+      # Realiza login no Amazon ECR
+      - name: Login no Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build e push da imagem do backend (latest)
+      - name: Build e push Backend para ECR (latest)
+        if: github.event_name == 'push'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # Build e push da imagem do frontend (latest)
+      - name: Build e push Frontend para ECR (latest)
+        if: github.event_name == 'push'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      
+      # =========================================================================
+      # BUILD E PUSH PARA ECR
+      # =========================================================================
+      
+      # Realiza deploy na EC2 (db, backend, frontend)
+      - name: Deploy na instância EC2
+        if: github.event_name == 'push'
+        env:
+          IMAGE_TAG: latest
+        run: |
+          aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
+          docker stop contacts-frontend-production contacts-backend-production contacts-db-production || true
+          docker rm contacts-frontend-production contacts-backend-production contacts-db-production || true
+          docker run --restart unless-stopped -d --name contacts-db-production \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER_PROD }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_PROD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB_PROD }} \
+            -v contacts_data_production:/var/lib/postgresql/data \
+            postgres:13-alpine
+          sleep 15
+          docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
+          docker run --restart unless-stopped -d --name contacts-backend-production \
+            -p ${{ secrets.BACKEND_PORT_PROD }}:${{ secrets.BACKEND_PORT_PROD }} \
+            --env PORT=${{ secrets.BACKEND_PORT_PROD }} \
+            --env DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER_PROD }}:${{ secrets.POSTGRES_PASSWORD_PROD }}@contacts-db-production:5432/${{ secrets.POSTGRES_DB_PROD }} \
+            --env JWT_SECRET=${{ secrets.JWT_SECRET_PROD }} \
+            --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_PROD }} \
+            --link contacts-db-production:contacts-db-production \
+            ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
+          docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
+          docker run --restart unless-stopped -d --name contacts-frontend-production \
+            -p 80:80 \
+            --link contacts-backend-production:app \
+            --env BACKEND_HOST=app \
+            ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
         
-        if [[ "$BRANCH_NAME" == feature/* ]]; then
-          echo "type=minor" >> $GITHUB_OUTPUT
-          echo "release_type=production" >> $GITHUB_OUTPUT
-          echo "description=Nova funcionalidade" >> $GITHUB_OUTPUT
-          echo "emoji=✨" >> $GITHUB_OUTPUT
-        elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
-          echo "type=patch" >> $GITHUB_OUTPUT
-          echo "release_type=production" >> $GITHUB_OUTPUT
-          echo "description=Correção de bug" >> $GITHUB_OUTPUT
-          echo "emoji=🐛" >> $GITHUB_OUTPUT
-        elif [[ "$BRANCH_NAME" == release/* ]]; then
-          echo "type=minor" >> $GITHUB_OUTPUT
-          echo "release_type=production" >> $GITHUB_OUTPUT
-          echo "description=Release oficial" >> $GITHUB_OUTPUT
-          echo "emoji=🚀" >> $GITHUB_OUTPUT
-        else
-          echo "type=patch" >> $GITHUB_OUTPUT
-          echo "release_type=production" >> $GITHUB_OUTPUT
-          echo "description=Atualização de produção" >> $GITHUB_OUTPUT
-          echo "emoji=⚙️" >> $GITHUB_OUTPUT
-        fi
+      # =========================================================================
+      # VERIFICAÇÃO E LIMPEZA
+      # =========================================================================
+      
+      # Verifica containers ativos e portas expostas
+      - name: Verificar deploy
+        run: |
+          echo "📊 Status do deploy:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
-    # =========================================================================
-    # CONFIGURAÇÃO DE AMBIENTES
-    # =========================================================================
-    
-    # Configura Python para o backend
-    - name: Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    # Configura Node.js para o frontend
-    - name: Configurar Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-
-    # =========================================================================
-    # VERSIONAMENTO FRONTEND
-    # =========================================================================
-    
-    # Instala dependências do frontend
-    - name: Instalar dependências do frontend
-      working-directory: ./frontend
-      run: npm install
-
-    # Garante que standard-version está instalado
-    - name: Configurar standard-version
-      working-directory: ./frontend
-      run: |
-        if ! npm list standard-version > /dev/null 2>&1; then
-          npm install --save-dev standard-version
-        fi
-
-    # Aplica o versionamento no frontend
-    - name: Versionamento Frontend
-      if: github.event_name == 'push'
-      working-directory: ./frontend
-      run: npm run release -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
-
-    # =========================================================================
-    # VERSIONAMENTO BACKEND
-    # =========================================================================
-    
-    # Instala dependências do backend
-    - name: Instalar dependências do backend
-      working-directory: ./backend
-      run: |
-        python -m pip install --upgrade pip
-        pip install bump2version
-        if [ -f "requirements.txt" ]; then
-          pip install -r requirements.txt
-        fi
-
-    # Aplica o versionamento no backend
-    - name: Versionamento Backend
-      if: github.event_name == 'push'
-      working-directory: ./backend
-      run: |
-        echo "📋 Aplicando versionamento no backend..."
-        
-        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        echo "📦 Versão atual: $CURRENT_VERSION"
-        
-        if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
-          echo "⚠️ Adicionando seção Unreleased ao CHANGELOG..."
-          echo -e "## [Unreleased]\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
-        fi
-        
-        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
-        
-        NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        echo "✅ Nova versão do backend: $NEW_VERSION"
-
-    # Normaliza a versão do backend para estável (sem sufixo pré-release)
-    - name: Normalizar versão Backend para produção
-      if: github.event_name == 'push'
-      working-directory: ./backend
-      run: |
-        NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        STABLE_VERSION=$(echo "$NEW_VERSION" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-        if [ "$NEW_VERSION" != "$STABLE_VERSION" ]; then
-          echo "🔧 Ajustando versão para estável: $STABLE_VERSION"
-          bump2version --current-version "$NEW_VERSION" --new-version "$STABLE_VERSION" patch --allow-dirty
-        else
-          echo "✅ Versão já estável: $STABLE_VERSION"
-        fi
-        
-    - name: Sanitizar CHANGELOG do backend para produção
-      if: github.event_name == 'push'
-      working-directory: ./backend
-      run: |
-        sed -i 's/^## v## \[Unreleased\]/## \[Unreleased\]/' CHANGELOG.md || true
-        sed -i '/Deploy versão .*develop.*/d' CHANGELOG.md || true
-    - name: Sincronizar .bumpversion.cfg com versão estável
-      if: github.event_name == 'push'
-      working-directory: ./backend
-      run: |
-        STABLE_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-        sed -i -E "s/^current_version *= *.*/current_version = ${STABLE_VERSION}/" .bumpversion.cfg || true
-
-    # =========================================================================
-    # GERENCIAMENTO DE TAGS
-    # =========================================================================
-    
-    # Cria tag baseada nas versões atualizadas
-    - name: Criar tag
-      if: github.event_name == 'push'
-      id: tag
-      run: |
-        FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-        BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-        TAG_NAME="v${FRONTEND_VERSION}"
-        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-        echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
-        echo "backend_version=$BACKEND_VERSION" >> $GITHUB_OUTPUT
-
-    # =========================================================================
-    # COMMIT E PUSH
-    # =========================================================================
-    
-    - name: Commit das alterações
-      if: github.event_name == 'push'
-      run: |
-        git add .
-        if ! git diff --cached --quiet; then
-          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}"
-        fi
-
-    - name: Push e criar tag
-      if: github.event_name == 'push'
-      run: |
-        BRANCH_NAME="${{ github.ref_name }}"
-        git push origin "$BRANCH_NAME"
-        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}"
-        • Ambiente: Produção (${{ steps.version-type.outputs.release_type }})
-        • Data: $(date '+%d/%m/%Y %H:%M')
-        
-        Criado automaticamente pelo GitHub Actions"
-
-    # =========================================================================
-    # CONFIGURAÇÃO AWS E ECR
-    # =========================================================================
-    
-    # Configura Docker Buildx para builds otimizados
-    - name: Configurar Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    # Configura credenciais da AWS
-    - name: Configurar credenciais AWS
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
-        aws-region: ${{ secrets.AWS_REGION_PROD }}
-
-    # Login no Amazon ECR
-    - name: Login no Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    # =========================================================================
-    # BUILD E PUSH PARA ECR
-    # =========================================================================
-    
-    # Verifica se a versão já existe no ECR
-    - name: Verificar se versão já existe no ECR
-      id: check-version
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY_BACKEND: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
-        ECR_REPOSITORY_FRONTEND: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
-        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }}
-      run: |
-        # Verifica se a imagem do backend já existe
-        if aws ecr describe-images --repository-name $ECR_REPOSITORY_BACKEND --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
-          echo "⚠️ Versão $IMAGE_TAG já existe no ECR para backend"
-          echo "backend_exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "✅ Versão $IMAGE_TAG não existe no ECR para backend"
-          echo "backend_exists=false" >> $GITHUB_OUTPUT
-        fi
-        
-        # Verifica se a imagem do frontend já existe
-        if aws ecr describe-images --repository-name $ECR_REPOSITORY_FRONTEND --image-ids imageTag=$IMAGE_TAG >/dev/null 2>&1; then
-          echo "⚠️ Versão $IMAGE_TAG já existe no ECR para frontend"
-          echo "frontend_exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "✅ Versão $IMAGE_TAG não existe no ECR para frontend"
-          echo "frontend_exists=false" >> $GITHUB_OUTPUT
-        fi
-    
-    # Build, tag e push da imagem Backend para ECR
-    - name: Build e push Backend para ECR
-      if: github.event_name == 'push' && steps.check-version.outputs.backend_exists == 'false'
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
-        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }}
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-    # Build, tag e push da imagem Frontend para ECR
-    - name: Build e push Frontend para ECR
-      if: github.event_name == 'push' && steps.check-version.outputs.frontend_exists == 'false'
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
-        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }}
-      run: |
-        # Build da imagem com configuração para produção
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-          --build-arg REACT_APP_API_BASE_URL=http://${{ secrets.EC2_HOST_PROD }}:${{ secrets.BACKEND_PORT_PROD }}/api \
-          ./frontend
-        
-        # Push da imagem com tag de versão
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        
-        # Tag e push da imagem como latest
-        # docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        # docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-    # =========================================================================
-    # DEPLOY NA INSTÂNCIA EC2
-    # =========================================================================
-    
-    # Deploy das imagens na instância EC2
-    - name: Deploy na instância EC2
-      if: github.event_name == 'push'
-      env:
-        IMAGE_TAG: ${{ steps.tag.outputs.tag_name }} 
-      run: |
-        aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
-
-        # Para e remove containers existentes
-        docker stop contacts-frontend-production contacts-backend-production contacts-db-production || true
-        docker rm contacts-frontend-production contacts-backend-production contacts-db-production || true
-
-        # Inicia o banco de dados PostgreSQL
-        docker run --restart unless-stopped -d --name contacts-db-production \
-          -e POSTGRES_USER=${{ secrets.POSTGRES_USER_PROD }} \
-          -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_PROD }} \
-          -e POSTGRES_DB=${{ secrets.POSTGRES_DB_PROD }} \
-          -v contacts_data_production:/var/lib/postgresql/data \
-          postgres:13-alpine
-
-        # Aguarda inicialização do banco
-        sleep 15
-
-        # Puxa e inicia o Backend do ECR (AGORA USANDO A TAG VERSIONADA)
-        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
-        docker run --restart unless-stopped -d --name contacts-backend-production \
-          -p ${{ secrets.BACKEND_PORT_PROD }}:${{ secrets.BACKEND_PORT_PROD }} \
-          --env PORT=${{ secrets.BACKEND_PORT_PROD }} \
-          --env DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER_PROD }}:${{ secrets.POSTGRES_PASSWORD_PROD }}@contacts-db-production:5432/${{ secrets.POSTGRES_DB_PROD }} \
-          --env JWT_SECRET=${{ secrets.JWT_SECRET_PROD }} \
-          --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_PROD }} \
-          --link contacts-db-production:contacts-db-production \
-          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}:$IMAGE_TAG
-
-        # Puxa e inicia o Frontend do ECR (AGORA USANDO A TAG VERSIONADA)
-        docker pull ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
-        docker run --restart unless-stopped -d --name contacts-frontend-production \
-          -p 80:80 \
-          --link contacts-backend-production:app \
-          --env BACKEND_HOST=app \
-          ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
-
-    # =========================================================================
-    # VERIFICAÇÃO E LIMPEZA
-    # =========================================================================
-    
-    # Verifica o status do deploy
-    - name: Verificar deploy
-      run: |
-        echo "📊 Status do deploy:"
-        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        
-        echo ""
-        echo "🎉 Deploy de produção concluído!"
-        echo "📦 Versões deployadas:"
-        echo "   Frontend: ${{ steps.tag.outputs.frontend_version }}"
-        echo "   Backend: ${{ steps.tag.outputs.backend_version }}"
-        echo "   Tag: ${{ steps.tag.outputs.tag_name }}"
-
-    # Limpa imagens não utilizadas para economizar espaço
-    - name: Limpeza
-      run: docker image prune -f || true
+      # Remove imagens não utilizadas para liberar espaço
+      - name: Limpeza
+        run: docker image prune -f || true
