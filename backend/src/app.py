@@ -45,7 +45,7 @@ class Contact(db.Model):
 # Informações da aplicação
 APP_INFO = Info('contacts_app', 'Contacts Application Information')
 APP_INFO.info({
-    'version': '1.0.0',
+    'version': 'latest',
     'language': 'python',
     'framework': 'flask',
     'database': 'postgresql'

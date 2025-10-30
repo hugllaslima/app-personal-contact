@@ -11,8 +11,6 @@ on:
   pull_request:
     branches: [develop]
     types: [opened, synchronize, reopened]
-  push:
-    branches: [develop]
 
 jobs:
   build-and-deploy:
@@ -28,13 +26,11 @@ jobs:
     - name: Limpar workspace
       run: rm -rf ./* ./.* 2>/dev/null || true
 
-    # Checkout do código com token de acesso para permitir commits
+    # Checkout do código
     - name: Checkout do código
       uses: actions/checkout@v4
-      with: 
-        fetch-depth: 0  # Histórico completo para versionamento
-        clean: true
-        token: ${{ secrets.PAT_TOKEN_DEV }}
+      with:
+        fetch-depth: 0
 
     # Configura o Git para realizar commits automatizados
     - name: Configurar Git
@@ -43,193 +39,32 @@ jobs:
         git config --global user.name "GitHub Actions Bot"
         git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN_DEV }}@github.com/${{ github.repository }}.git
 
-    # Configura a branch local para trabalhar com a branch do PR
-    - name: Configurar branch local
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        BRANCH_NAME="${{ github.head_ref }}"
-        git fetch origin
-        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
-        git branch --set-upstream-to="origin/$BRANCH_NAME" "$BRANCH_NAME"
+    # (Removido) Configuração de branch local e versionamento
 
-    # =========================================================================
-    # ANÁLISE DE VERSIONAMENTO
-    # =========================================================================
-    
-    # Determina o tipo de versionamento baseado no evento/branch
-    - name: Determinar tipo de versionamento
-      id: version-type
-      run: |
-        EVENT_NAME="${{ github.event_name }}"
-        if [[ "$EVENT_NAME" == "pull_request" ]]; then
-          BRANCH_NAME="${{ github.head_ref }}"
-          if [[ "$BRANCH_NAME" == feature/* ]]; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-            echo "release_type=develop" >> $GITHUB_OUTPUT
-            echo "description=Nova funcionalidade" >> $GITHUB_OUTPUT
-            echo "emoji=✨" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH_NAME" == hotfix/* ]]; then
-            echo "type=patch" >> $GITHUB_OUTPUT
-            echo "release_type=develop" >> $GITHUB_OUTPUT
-            echo "description=Correção de bug" >> $GITHUB_OUTPUT
-            echo "emoji=🐛" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH_NAME" == release/* ]]; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-            echo "release_type=beta" >> $GITHUB_OUTPUT
-            echo "description=Release candidate" >> $GITHUB_OUTPUT
-            echo "emoji=🚀" >> $GITHUB_OUTPUT
-          else
-            echo "type=patch" >> $GITHUB_OUTPUT
-            echo "release_type=develop" >> $GITHUB_OUTPUT
-            echo "description=Atualização experimental" >> $GITHUB_OUTPUT
-            echo "emoji=⚙️" >> $GITHUB_OUTPUT
-          fi
-        else
-          # Evento push para develop: fallback seguro baseado no último commit de merge
-          MERGE_SUBJECT=$(git log -1 --pretty=%s || echo "")
-          if echo "$MERGE_SUBJECT" | grep -qiE "hotfix/|chore\(hotfix\)|hotfix"; then
-            echo "type=patch" >> $GITHUB_OUTPUT
-            echo "description=Correção de bug" >> $GITHUB_OUTPUT
-            echo "emoji=🐛" >> $GITHUB_OUTPUT
-          elif echo "$MERGE_SUBJECT" | grep -qiE "feature/|feat|feature"; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-            echo "description=Nova funcionalidade" >> $GITHUB_OUTPUT
-            echo "emoji=✨" >> $GITHUB_OUTPUT
-          elif echo "$MERGE_SUBJECT" | grep -qiE "release/|release"; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-            echo "description=Release candidate" >> $GITHUB_OUTPUT
-            echo "emoji=🚀" >> $GITHUB_OUTPUT
-          else
-            echo "type=patch" >> $GITHUB_OUTPUT
-            echo "description=Atualização incremental" >> $GITHUB_OUTPUT
-            echo "emoji=⚙️" >> $GITHUB_OUTPUT
-          fi
-          # Ambiente sempre develop em push para develop
-          echo "release_type=develop" >> $GITHUB_OUTPUT
-        fi
+    # (Removido) Toda a lógica de análise de versionamento
 
     # =========================================================================
     # CONFIGURAÇÃO DE AMBIENTES
     # =========================================================================
     
-    # Configura Python para o backend
-    - name: Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+    # (Removido) Setup Python (não necessário para build Docker)
 
-    # Configura Node.js para o frontend
-    - name: Configurar Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+    # (Removido) Setup Node (não necessário para build Docker)
 
-    # =========================================================================
-    # VERSIONAMENTO FRONTEND
-    # =========================================================================
-    
-    # Instala dependências do frontend
-    - name: Instalar dependências do frontend
-      working-directory: ./frontend
-      run: npm install
+    # (Removido) Toda a etapa de versionamento do frontend
 
-    # Garante que standard-version está instalado (apenas em push)
-    - name: Configurar standard-version
-      if: ${{ github.event_name == 'push' }}
-      working-directory: ./frontend
-      run: |
-        if ! npm list standard-version > /dev/null 2>&1; then
-          npm install --save-dev standard-version
-        fi
-
-    # Aplica o versionamento no frontend baseado no tipo (apenas em push)
-    - name: Versionamento Frontend
-      if: ${{ github.event_name == 'push' }}
-      working-directory: ./frontend
-      run: |
-        if [[ "${{ steps.version-type.outputs.release_type }}" == "develop" ]]; then
-          npm run release:develop -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
-        elif [[ "${{ steps.version-type.outputs.release_type }}" == "beta" ]]; then
-          npm run release:beta -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
-        else
-          npm run release:alpha -- ${{ steps.version-type.outputs.type }} --skip.tag --no-verify
-        fi
-
-    # =========================================================================
-    # VERSIONAMENTO BACKEND
-    # =========================================================================
-    
-    # Instala dependências do backend
-    - name: Instalar dependências do backend
-      working-directory: ./backend
-      run: |
-        python -m pip install --upgrade pip
-        pip install bump2version
-        if [ -f "requirements.txt" ]; then
-          pip install -r requirements.txt
-        fi
-
-    # Aplica o versionamento no backend (apenas em push)
-    - name: Versionamento Backend
-      if: ${{ github.event_name == 'push' }}
-      working-directory: ./backend
-      run: |
-        echo "📋 Aplicando versionamento no backend..."
-        CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        echo "📦 Versão atual: $CURRENT_VERSION"
-        if ! grep -q "## \[Unreleased\]" CHANGELOG.md; then
-          echo "⚠️ Adicionando seção Unreleased ao CHANGELOG..."
-          echo -e "## [Unreleased]\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
-        fi
-        bump2version --current-version "$CURRENT_VERSION" ${{ steps.version-type.outputs.type }} --allow-dirty
-        NEW_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1)
-        echo "✅ Nova versão do backend: $NEW_VERSION"
+    # (Removido) Toda a etapa de versionamento do backend
         
-    # =========================================================================
-    # GERENCIAMENTO DE TAGS
-    # =========================================================================
-    
-    # Cria tag baseada nas versões atualizadas (apenas em push)
-    - name: Criar tag
-      if: ${{ github.event_name == 'push' }}
-      id: tag
-      run: |
-        FRONTEND_VERSION=$(cd frontend && node -p "require('./package.json').version" 2>/dev/null || echo 'N/A')
-        BACKEND_VERSION=$(cd backend && grep 'version = ' pyproject.toml | cut -d'"' -f2 | head -1 2>/dev/null || echo 'N/A')
-        TAG_NAME="v${FRONTEND_VERSION}"
-        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-        echo "frontend_version=$FRONTEND_VERSION" >> $GITHUB_OUTPUT
-        echo "backend_version=$BACKEND_VERSION" >> $GITHUB_OUTPUT
+    # (Removido) Gerenciamento de tags
 
-    # =========================================================================
-    # COMMIT E PUSH
-    # =========================================================================
-    
-    # Realiza commit das alterações de versionamento (apenas em push)
-    - name: Commit das alterações
-      if: ${{ github.event_name == 'push' }}
-      run: |
-        git add .
-        if ! git diff --cached --quiet; then
-          git commit -m "${{ steps.version-type.outputs.emoji }} chore(release): bump versions to ${{ steps.tag.outputs.frontend_version }}\n\n          ${{ steps.version-type.outputs.description }}\n\n          📦 Versionamento:\n          • Frontend: ${{ steps.tag.outputs.frontend_version }}\n          • Backend: ${{ steps.tag.outputs.backend_version }}\n          • Ambiente: ${{ steps.version-type.outputs.release_type }}\n          • Tipo: ${{ steps.version-type.outputs.type }}\n          • Branch: ${{ github.ref_name }}\n          \n          Co-authored-by: GitHub Actions <actions@github.com>"
-        fi
-
-    # Push das alterações e criação da tag (apenas em push)
-    - name: Push e criar tag
-      if: ${{ github.event_name == 'push' }}
-      run: |
-        BRANCH_NAME="${{ github.ref_name }}"
-        git push origin "$BRANCH_NAME"
-        git tag -a "${{ steps.tag.outputs.tag_name }}" -m "${{ steps.version-type.outputs.emoji }} Release ${{ steps.tag.outputs.tag_name }}\n\n        🚀 Deploy ${{ steps.version-type.outputs.description }}\n        • Frontend: ${{ steps.tag.outputs.frontend_version }}\n        • Backend: ${{ steps.tag.outputs.backend_version }}\n        • Ambiente: Homologação (${{ steps.version-type.outputs.release_type }})\n        • Data: $(date '+%d/%m/%Y %H:%M')\n        \n        Criado automaticamente pelo GitHub Actions"
-        git push origin --tags
+    # (Removido) Commit e criação de tags
 
     # =========================================================================
     # BUILD E DEPLOY
     # =========================================================================
     
-    # Configura Docker Buildx para builds otimizados (apenas em push)
+    # Configura Docker Buildx para builds otimizados
     - name: Configurar Docker Buildx
-      if: ${{ github.event_name == 'push' }}
       uses: docker/setup-buildx-action@v3
 
     # Build da imagem Docker do Backend (apenas em push)
@@ -281,12 +116,6 @@ jobs:
       run: |
         echo "📊 Status do deploy:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        echo ""
-        echo "🎉 Deploy de homologação concluído!"
-        echo "📦 Versões deployadas:"
-        echo "   Frontend: ${{ steps.tag.outputs.frontend_version }}"
-        echo "   Backend: ${{ steps.tag.outputs.backend_version }}"
-        echo "   Tag: ${{ steps.tag.outputs.tag_name }}"
 
     # Limpa imagens não utilizadas para economizar espaço (apenas em push)
     - name: Limpeza
