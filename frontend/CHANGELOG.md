@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.8-develop.40](https://github.com/hugllaslima/app-personal-contact/compare/v0.1.8-develop.39...v0.1.8-develop.40) (2025-10-30)
+
 ### [0.1.8-develop.39](https://github.com/hugllaslima/app-personal-contact/compare/v0.1.8-develop.38...v0.1.8-develop.39) (2025-10-30)
 
 ### [0.1.8-develop.38](https://github.com/hugllaslima/app-personal-contact/compare/v0.1.8-develop.37...v0.1.8-develop.38) (2025-10-30)
