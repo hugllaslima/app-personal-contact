@@ -22,16 +22,20 @@ services:
       retries: 5
     networks:
       - app_network
+    restart: unless-stopped  # ← ADICIONADO
 
   # ==========================================
   # BACKEND (Flask + Prometheus Metrics)
   # ==========================================
   app:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile  # ← EXPLÍCITO
     container_name: contacts_backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/contacts_db
       FLASK_ENV: production
+      PYTHONUNBUFFERED: 1  # ← ADICIONADO (importante para logs)
     ports:
       - "5000:5000"
     depends_on:
@@ -45,6 +49,7 @@ services:
       start_period: 40s
     networks:
       - app_network
+    restart: unless-stopped  # ← ADICIONADO
     labels:
       - "prometheus.scrape=true"
       - "prometheus.port=5000"
@@ -54,7 +59,9 @@ services:
   # FRONTEND
   # ==========================================
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile  # ← EXPLÍCITO
     container_name: contacts_frontend
     ports:
       - "80:80"
@@ -62,6 +69,13 @@ services:
       - app
     networks:
       - app_network
+    restart: unless-stopped  # ← ADICIONADO
+    healthcheck:  # ← ADICIONADO
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # ==========================================
   # POSTGRES EXPORTER (Métricas do Banco)
