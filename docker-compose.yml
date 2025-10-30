@@ -63,6 +63,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile  # ← EXPLÍCITO
     container_name: contacts_frontend
+    environment:
+      BACKEND_HOST: app
+      BACKEND_PORT: 5000
+      BACKEND_SCHEME: http
     ports:
       - "80:80"
     depends_on:
