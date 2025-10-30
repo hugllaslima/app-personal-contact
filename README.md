@@ -52,7 +52,7 @@ O projeto segue uma arquitetura de três camadas:
 - **Docker & Docker Compose**: Containerização e orquestração
 - **GitHub Actions**: CI/CD para deploy automático
 - **AWS**: Infraestrutura em nuvem para produção
-- **Bump2version**: Controle de versionamento semântico
+ 
 
 ## 🔧 Requisitos
 
@@ -237,12 +237,12 @@ O projeto utiliza GitHub Actions para integração contínua e deploy automátic
 - **deploy-develop.yml**: Deploy para ambiente de desenvolvimento
   - Gatilho: Push para branch `develop`
   - Infraestrutura: VM no Proxmox VE
-  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para ambiente de desenvolvimento
+  - Ações: Testes, build de imagens Docker, deploy para ambiente de desenvolvimento
 
 - **deploy-production.yml**: Deploy para ambiente de produção
   - Gatilho: Push para branch `main`
   - Infraestrutura: AWS (ECR + EC2)
-  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para AWS
+  - Ações: Testes, build de imagens Docker, deploy para AWS
 
 ### Configuração para Deploy
 
@@ -274,12 +274,7 @@ Para configurar o deploy automático:
 
 3. Certifique-se de que as permissões AWS estão corretamente configuradas
 
-### Versionamento
-
-O projeto utiliza `bump2version` para controle de versões semânticas:
-
-- Versões de desenvolvimento: `X.Y.Z.devN`
-- Versões de produção: `X.Y.Z`
+ 
 
 ## 🛡️ Segurança
 
