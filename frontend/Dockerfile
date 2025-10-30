@@ -1,11 +1,11 @@
 # Usa a imagem oficial do Nginx
 FROM nginx:alpine
 
-# Remove a configuração padrão do Nginx
-RUN rm /etc/nginx/conf.d/default.conf
+# Remove a configuração padrão do Nginx (se existir)
+RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Copia a configuração personalizada (SEM template)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copia o template de configuração para o diretório que o entrypoint processa
+COPY contact-app.conf.template /etc/nginx/templates/contact-app.conf.template
 
 # Copia os arquivos estáticos do frontend
 COPY src/ /usr/share/nginx/html/
