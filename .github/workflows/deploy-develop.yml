@@ -17,8 +17,8 @@ on:
  # ------------------------------------------------------------------------------
   # OBS: Atualmente este workflow só é acionado em `pull_request` para `develop`.
   # Se desejar executar build e deploy em `push` para `develop`, adicione:
-  # push:
-  #   branches: [develop]
+  push:
+    branches: [develop]
   # -----------------------------------------------------------------------------
 
 jobs:
