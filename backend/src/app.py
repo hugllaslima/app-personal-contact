@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from sqlalchemy import text
 from flask_sqlalchemy import SQLAlchemy
 import os
 from prometheus_client import Counter, Gauge, Histogram, Info, make_wsgi_app
@@ -203,7 +204,7 @@ def health_check():
     """Endpoint para healthcheck"""
     try:
         # Testa conexão com o banco
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         db_status = 'healthy'
         status_code = 200
     except Exception as e:
@@ -371,6 +372,18 @@ def get_stats():
 # ==========================================
 # INICIALIZAÇÃO
 # ==========================================
+
+# Garante criação de tabelas quando executado sob servidores WSGI (ex.: gunicorn)
+with app.app_context():
+    try:
+        db.create_all()
+        try:
+            CONTACTS_TOTAL.set(Contact.query.count())
+        except Exception:
+            pass
+        print("✓ Database tables ensured at import")
+    except Exception as e:
+        print(f"✗ Error ensuring database tables at import: {e}")
 
 if __name__ == '__main__':
     with app.app_context():
