@@ -2,8 +2,8 @@
 # WORKFLOW: Deploy para Ambiente de Produção
 # =========================================================================
 # Este workflow valida PRs direcionados à branch `main`.
-# Build e deploy usam imagens com tag `latest` (sem versionamento semântico).
-# Observação: as etapas de build/deploy estão condicionadas a eventos `push`.
+# Build e deploy usam imagens com tag baseada no SHA do commit.
+# Observação: as etapas de build/deploy são executadas apenas após merge do PR.
 # Para acionar deploy em `push` para `main`, veja comentário na seção `on:`.
 # Requisitos: runner self-hosted com Docker e AWS CLI (para comandos `aws`).
 # ========================================================================= 
@@ -21,21 +21,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate:
+    environment: app-personal-contact-production
+    runs-on: [self-hosted, production-runner]
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Limpar workspace
+        run: rm -rf ./* ./.* 2>/dev/null || true
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
   build-and-deploy:
     environment: app-personal-contact-production
     runs-on: [self-hosted, production-runner]
     permissions:
       contents: read
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
 
     steps:
       # =========================================================================
       # PREPARAÇÃO DO AMBIENTE
       # =========================================================================
       
-      # Limpa workspace para evitar resquícios de execuções anteriores
-      - name: Limpar workspace
-        run: rm -rf ./* ./.* 2>/dev/null || true
-
       # Faz checkout do código do repositório
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -53,7 +67,6 @@ jobs:
 
       # Configura credenciais AWS para ECR e CLI
       - name: Configurar credenciais AWS
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
@@ -62,13 +75,11 @@ jobs:
 
       # Realiza login no Amazon ECR
       - name: Login no Amazon ECR
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       # Build e push da imagem do backend (tag por commit SHA)
       - name: Build e push Backend para ECR (sha)
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
@@ -79,7 +90,6 @@ jobs:
 
       # Build e push da imagem do frontend (tag por commit SHA)
       - name: Build e push Frontend para ECR (sha)
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
@@ -94,7 +104,6 @@ jobs:
       
       # Realiza deploy na EC2 (db, backend, frontend)
       - name: Deploy na instância EC2
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         env:
           IMAGE_TAG: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -130,12 +139,10 @@ jobs:
       
       # Verifica containers ativos e portas expostas
       - name: Verificar deploy
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         run: |
           echo "📊 Status do deploy:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
       # Remove imagens não utilizadas para liberar espaço
       - name: Limpeza
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         run: docker image prune -f || true
