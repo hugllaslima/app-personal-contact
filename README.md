@@ -27,7 +27,7 @@ O projeto segue uma arquitetura de três camadas:
 ```
 ┌─────────────┐        ┌─────────────┐        ┌──────────────┐
 │  Frontend   │        │   Backend   │        │   Database   │
-│  (Nginx)    │ ────▶ │   (Flask)   │  ────▶ │ (PostgreSQL) │
+│  (Nginx)    │ ────▶  │   (Flask)   │  ────▶ │ (PostgreSQL) │
 └─────────────┘        └─────────────┘        └──────────────┘
 ```
 
@@ -71,28 +71,25 @@ O projeto segue uma arquitetura de três camadas:
    cd app-personal-contact
    ```
 
-### ⚙️ Configuração do Frontend com Nginx (templates e envsubst)
+### ⚙️ Configuração do Frontend com Nginx (configuração fixa)
 
-Este projeto usa a imagem oficial do Nginx com suporte a templates em `/etc/nginx/templates`. As variáveis de ambiente abaixo são substituídas no arquivo `contact-app.conf.template` durante o startup:
+O frontend usa um `nginx.conf` fixo copiado para `/etc/nginx/conf.d/default.conf` (sem templates em `/etc/nginx/templates` e sem `envsubst`). O proxy reverso do Nginx aponta para `http://app:5000` dentro da rede do Compose, roteando:
 
-- `BACKEND_HOST`: host do backend (ex.: `app` no docker-compose)
-- `BACKEND_PORT`: porta do backend (ex.: `5000`)
-- `BACKEND_SCHEME`: protocolo (`http` ou `https`)
+- `location /api/` → `http://app:5000/`
+- `location /health` → `http://app:5000/health`
+- `location /metrics` → `http://app:5000/metrics`
 
-Exemplo com Docker Compose: já definido no serviço `frontend`.
+Arquivo de configuração: `frontend/nginx.conf` (copiado pelo `Dockerfile` para o container).
 
-Exemplo com `docker run` direto:
+Exemplo com `docker run` direto (sem variáveis de ambiente):
 
 ```bash
 docker run -d --name contacts-frontend \
   -p 80:80 \
-  -e BACKEND_HOST=contacts_backend \
-  -e BACKEND_PORT=5000 \
-  -e BACKEND_SCHEME=http \
   ghcr.io/hugllaslima/contacts-frontend:latest
 ```
 
-Se você usar variáveis não definidas ou usar a sintaxe `$backend_host` no template, o Nginx falhará com `unknown "backend_host" variable`. Use sempre `${BACKEND_HOST}` `${BACKEND_PORT}` `${BACKEND_SCHEME}` no template.
+No Docker Compose, o serviço `frontend` já está configurado para comunicar-se com o serviço `app` na porta `5000`.
 
 2. Crie um arquivo `.env` baseado no `.env.example`:
    ```bash
@@ -240,9 +237,15 @@ O projeto utiliza GitHub Actions para integração contínua e deploy automátic
   - Ações: Testes, build de imagens Docker, deploy para ambiente de desenvolvimento
 
 - **deploy-production.yml**: Deploy para ambiente de produção
-  - Gatilho: Push para branch `main`
+  - Gatilhos: Pull Request para branch `main` (validações) e Push para branch `main` (deploy)
   - Infraestrutura: AWS (ECR + EC2)
   - Ações: Testes, build de imagens Docker, deploy para AWS
+
+### Fluxo de Aprovação e Deploy (produção)
+
+- Ao abrir um Pull Request para `main`, o pipeline executa apenas validações (build e testes). As etapas sensíveis que utilizam secrets da AWS (configurar credenciais, login no ECR, build/push das imagens e deploy na EC2) ficam condicionadas a `if: github.event_name == 'push'` e não executam em `pull_request`.
+- Após aprovação pelo tech lead e merge do PR, o evento `push` para `main` dispara o deploy completo: configuração de credenciais AWS, login no ECR, build e push das imagens `contacts-backend` e `contacts-frontend` com tag `latest`, e execução do deploy na instância EC2.
+- Recomenda-se proteger a branch `main` no GitHub (Branch protection rules) exigindo Pull Requests e aprovações antes do merge.
 
 ### Configuração para Deploy
 
@@ -273,6 +276,11 @@ Para configurar o deploy automático:
    - JWT_EXPIRES_IN_PROD
 
 3. Certifique-se de que as permissões AWS estão corretamente configuradas
+
+4. Proteja a branch `main` com regras de proteção (Settings → Branches → Branch protection rules):
+   - `Require a pull request before merging`
+   - `Require approvals` (ex.: aprovação por tech lead)
+   - Opcional: bloquear commits diretos na `main`
 
  
 
