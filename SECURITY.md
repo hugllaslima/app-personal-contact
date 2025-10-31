@@ -1,13 +1,8 @@
 # Política de Segurança
 
-## Versões Suportadas
+## Política de Releases
 
-Atualmente, as seguintes versões do aplicativo de contatos pessoais estão sendo mantidas com atualizações de segurança:
-
-| Versão | Suportada          |
-| ------ | ------------------ |
-| 1.x.x  | :white_check_mark: |
-| < 1.0  | :x:                |
+Este projeto não utiliza versionamento semântico tradicional. As atualizações são continuamente integradas e disponibilizadas por meio de imagens Docker com a tag `latest`. Recomendamos manter seu ambiente sempre atualizado com as imagens mais recentes.
 
 ## Reportando uma Vulnerabilidade
 
@@ -20,7 +15,7 @@ Agradecemos seu interesse em ajudar a manter este projeto seguro. Se você desco
 3. Inclua os seguintes detalhes em seu relatório:
    - Descrição clara da vulnerabilidade
    - Passos para reproduzir o problema
-   - Versão do aplicativo afetada
+   - Contexto do problema (commit/branch/data afetada)
    - Possível impacto da vulnerabilidade
    - Sugestões para mitigação ou correção (se possível)
 
@@ -46,7 +41,7 @@ Este aplicativo implementa as seguintes práticas de segurança:
 
 ## Atualizações de Segurança
 
-As atualizações de segurança são publicadas nos releases do projeto e documentadas no CHANGELOG. Recomendamos que você mantenha sua instalação sempre atualizada com a versão mais recente.
+As atualizações de segurança são publicadas continuamente e incorporadas às imagens `latest`. Recomendamos que você mantenha sua instalação sempre atualizada com a imagem mais recente.
 
 ---
 

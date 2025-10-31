@@ -52,7 +52,7 @@ O projeto segue uma arquitetura de três camadas:
 - **Docker & Docker Compose**: Containerização e orquestração
 - **GitHub Actions**: CI/CD para deploy automático
 - **AWS**: Infraestrutura em nuvem para produção
-- **Bump2version**: Controle de versionamento semântico
+ 
 
 ## 🔧 Requisitos
 
@@ -70,6 +70,29 @@ O projeto segue uma arquitetura de três camadas:
    git clone https://github.com/seu-usuario/app-personal-contact.git
    cd app-personal-contact
    ```
+
+### ⚙️ Configuração do Frontend com Nginx (templates e envsubst)
+
+Este projeto usa a imagem oficial do Nginx com suporte a templates em `/etc/nginx/templates`. As variáveis de ambiente abaixo são substituídas no arquivo `contact-app.conf.template` durante o startup:
+
+- `BACKEND_HOST`: host do backend (ex.: `app` no docker-compose)
+- `BACKEND_PORT`: porta do backend (ex.: `5000`)
+- `BACKEND_SCHEME`: protocolo (`http` ou `https`)
+
+Exemplo com Docker Compose: já definido no serviço `frontend`.
+
+Exemplo com `docker run` direto:
+
+```bash
+docker run -d --name contacts-frontend \
+  -p 80:80 \
+  -e BACKEND_HOST=contacts_backend \
+  -e BACKEND_PORT=5000 \
+  -e BACKEND_SCHEME=http \
+  ghcr.io/hugllaslima/contacts-frontend:latest
+```
+
+Se você usar variáveis não definidas ou usar a sintaxe `$backend_host` no template, o Nginx falhará com `unknown "backend_host" variable`. Use sempre `${BACKEND_HOST}` `${BACKEND_PORT}` `${BACKEND_SCHEME}` no template.
 
 2. Crie um arquivo `.env` baseado no `.env.example`:
    ```bash
@@ -214,12 +237,12 @@ O projeto utiliza GitHub Actions para integração contínua e deploy automátic
 - **deploy-develop.yml**: Deploy para ambiente de desenvolvimento
   - Gatilho: Push para branch `develop`
   - Infraestrutura: VM no Proxmox VE
-  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para ambiente de desenvolvimento
+  - Ações: Testes, build de imagens Docker, deploy para ambiente de desenvolvimento
 
 - **deploy-production.yml**: Deploy para ambiente de produção
   - Gatilho: Push para branch `main`
   - Infraestrutura: AWS (ECR + EC2)
-  - Ações: Testes, build de imagens Docker, versionamento com bump2version, deploy para AWS
+  - Ações: Testes, build de imagens Docker, deploy para AWS
 
 ### Configuração para Deploy
 
@@ -251,12 +274,7 @@ Para configurar o deploy automático:
 
 3. Certifique-se de que as permissões AWS estão corretamente configuradas
 
-### Versionamento
-
-O projeto utiliza `bump2version` para controle de versões semânticas:
-
-- Versões de desenvolvimento: `X.Y.Z.devN`
-- Versões de produção: `X.Y.Z`
+ 
 
 ## 🛡️ Segurança
 

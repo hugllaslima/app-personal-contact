@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  # ==========================================
+  # BANCO DE DADOS
+  # ==========================================
   db:
     image: postgres:13-alpine
     container_name: contacts_db
@@ -17,25 +20,130 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
+    restart: unless-stopped  # ← ADICIONADO
 
-  app: 
-    build: ./backend
+  # ==========================================
+  # BACKEND (Flask + Prometheus Metrics)
+  # ==========================================
+  app:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile  # ← EXPLÍCITO
     container_name: contacts_backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/contacts_db
+      FLASK_ENV: production
+      PYTHONUNBUFFERED: 1  # ← ADICIONADO (importante para logs)
     ports:
       - "5000:5000"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app_network
+    restart: unless-stopped  # ← ADICIONADO
+    labels:
+      - "prometheus.scrape=true"
+      - "prometheus.port=5000"
+      - "prometheus.path=/metrics"
 
-  frontend: 
-    build: ./frontend
+  # ==========================================
+  # FRONTEND
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile  # ← EXPLÍCITO
     container_name: contacts_frontend
+    environment:
+      BACKEND_HOST: app
+      BACKEND_PORT: 5000
+      BACKEND_SCHEME: http
     ports:
-      - "80:80" 
+      - "80:80"
     depends_on:
-      - app 
+      - app
+    networks:
+      - app_network
+    restart: unless-stopped  # ← ADICIONADO
+    healthcheck:  # ← ADICIONADO
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================
+  # POSTGRES EXPORTER (Métricas do Banco)
+  # ==========================================
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: contacts_postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@db:5432/contacts_db?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # ==========================================
+  # NODE EXPORTER (Métricas do Sistema)
+  # ==========================================
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: contacts_node_exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro,rslave
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - app_network
+    restart: unless-stopped
+    privileged: true
+
+  # ==========================================
+  # CADVISOR (Métricas dos Containers)
+  # ==========================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: contacts_cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - app_network
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   db_data:
