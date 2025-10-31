@@ -19,6 +19,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     environment: app-personal-contact-production
@@ -64,24 +68,24 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build e push da imagem do backend (latest)
-      - name: Build e push Backend para ECR (latest)
+      # Build e push da imagem do backend (tag por commit SHA)
+      - name: Build e push Backend para ECR (sha)
         if: github.event_name == 'push'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_BACKEND_PROD }}
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # Build e push da imagem do frontend (latest)
-      - name: Build e push Frontend para ECR (latest)
+      # Build e push da imagem do frontend (tag por commit SHA)
+      - name: Build e push Frontend para ECR (sha)
         if: github.event_name == 'push'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
@@ -94,7 +98,7 @@ jobs:
       - name: Deploy na instância EC2
         if: github.event_name == 'push'
         env:
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           aws configure set default.region ${{ secrets.AWS_REGION_PROD }}
           docker stop contacts-frontend-production contacts-backend-production contacts-db-production || true
@@ -128,10 +132,12 @@ jobs:
       
       # Verifica containers ativos e portas expostas
       - name: Verificar deploy
+        if: github.event_name == 'push'
         run: |
           echo "📊 Status do deploy:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
       # Remove imagens não utilizadas para liberar espaço
       - name: Limpeza
+        if: github.event_name == 'push'
         run: docker image prune -f || true
