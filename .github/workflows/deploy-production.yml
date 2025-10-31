@@ -15,12 +15,9 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened]
-# ----------------------------------------------------------------------------
-  # OBS: Atualmente este workflow só é acionado em `pull_request` para `main`.
-  # Se desejar executar build e deploy em `push` para `main`, adicione:
-  # push:
-  #   branches: [main]
-  # --------------------------------------------------------------------------
+  push:
+    branches:
+      - main
 
 jobs:
   build-and-deploy:
@@ -54,6 +51,7 @@ jobs:
 
       # Configura credenciais AWS para ECR e CLI
       - name: Configurar credenciais AWS
+        if: github.event_name == 'push'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
@@ -62,6 +60,7 @@ jobs:
 
       # Realiza login no Amazon ECR
       - name: Login no Amazon ECR
+        if: github.event_name == 'push'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
