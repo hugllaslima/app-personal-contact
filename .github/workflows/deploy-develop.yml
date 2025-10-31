@@ -13,17 +13,13 @@ name: (CI/CD) Deploy Para Ambiente de Homologação
 on:
   pull_request:
     branches: [develop]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
  # ------------------------------------------------------------------------------
   # OBS: Atualmente este workflow só é acionado em `pull_request` para `develop`.
   # Se desejar executar build e deploy em `push` para `develop`, adicione:
-  push:
-    branches: [develop]
+  # push:
+  #  branches: [develop]
   # -----------------------------------------------------------------------------
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
@@ -44,6 +40,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
 
     # Configura Git no runner
     - name: Configurar Git
@@ -62,20 +59,20 @@ jobs:
 
     # Constrói imagem local do backend (tag latest)
     - name: Build Backend
-      if: ${{ github.event_name == 'push' }}
-      run: docker build -t contacts-backend-homolog:latest ./backend
+      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+      run: docker build -t contacts-backend-homolog:${{ github.event.pull_request.head.sha }} ./backend
 
     # Constrói imagem local do frontend (tag latest)
     - name: Build Frontend
-      if: ${{ github.event_name == 'push' }}
+      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
-        docker build -t contacts-frontend-homolog:latest \
+        docker build -t contacts-frontend-homolog:${{ github.event.pull_request.head.sha }} \
           --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api \
           ./frontend
 
     # Realiza deploy no ambiente de homologação
     - name: Deploy para homologação
-      if: ${{ github.event_name == 'push' }}
+      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         docker stop contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
         docker rm contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
@@ -93,11 +90,11 @@ jobs:
           --env JWT_SECRET=${{ secrets.JWT_SECRET_DEV }} \
           --env JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN_DEV }} \
           --link contacts-db-homolog:contacts-db-homolog \
-          contacts-backend-homolog:latest
+          contacts-backend-homolog:${{ github.event.pull_request.head.sha }}
         docker run --restart unless-stopped -d --name contacts-frontend-homolog \
           -p 80:80 \
           --link contacts-backend-homolog:app \
-          contacts-frontend-homolog:latest
+          contacts-frontend-homolog:${{ github.event.pull_request.head.sha }}
 
     # =========================================================================
     # VERIFICAÇÃO E LIMPEZA
@@ -105,12 +102,15 @@ jobs:
 
     # Verifica containers ativos e portas expostas
     - name: Verificar deploy
-      if: ${{ github.event_name == 'push' }}
+      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         echo "📊 Status do deploy:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
     # Remove imagens não utilizadas para liberar espaço
     - name: Limpeza
-      if: ${{ github.event_name == 'push' }}
+      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: docker image prune -f || true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
