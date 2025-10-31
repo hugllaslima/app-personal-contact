@@ -22,7 +22,7 @@ services:
       retries: 5
     networks:
       - app_network
-    restart: unless-stopped  # ← ADICIONADO
+    restart: unless-stopped  
 
   # ==========================================
   # BACKEND (Flask + Prometheus Metrics)
@@ -30,12 +30,12 @@ services:
   app:
     build: 
       context: ./backend
-      dockerfile: Dockerfile  # ← EXPLÍCITO
+      dockerfile: Dockerfile  
     container_name: contacts_backend
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/contacts_db
       FLASK_ENV: production
-      PYTHONUNBUFFERED: 1  # ← ADICIONADO (importante para logs)
+      PYTHONUNBUFFERED: 1  
     ports:
       - "5000:5000"
     depends_on:
@@ -49,7 +49,7 @@ services:
       start_period: 40s
     networks:
       - app_network
-    restart: unless-stopped  # ← ADICIONADO
+    restart: unless-stopped  
     labels:
       - "prometheus.scrape=true"
       - "prometheus.port=5000"
@@ -61,7 +61,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile  # ← EXPLÍCITO
+      dockerfile: Dockerfile  
     container_name: contacts_frontend
     environment:
       BACKEND_HOST: app
@@ -73,8 +73,8 @@ services:
       - app
     networks:
       - app_network
-    restart: unless-stopped  # ← ADICIONADO
-    healthcheck:  # ← ADICIONADO
+    restart: unless-stopped 
+    healthcheck:  
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 3s
