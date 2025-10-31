@@ -126,6 +126,3 @@ jobs:
     # Remove imagens não utilizadas para liberar espaço
     - name: Limpeza
       run: docker image prune -f || true
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
