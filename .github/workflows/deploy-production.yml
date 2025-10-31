@@ -30,11 +30,23 @@ jobs:
       contents: read
 
     steps:
+      # =========================================================================
+      # PREPARAÇÃO DO AMBIENTE
+      # =========================================================================
+      
+      # Limpa workspace para evitar resquícios de execuções anteriores
+      - name: Limpar workspace
+        run: rm -rf ./* ./.* 2>/dev/null || true
+
       # Faz checkout do código do repositório
       - name: Checkout do código
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # =========================================================================
+      # CONFIGURAÇÃO AWS E ECR
+      # ========================================================================= 
 
       # Configura Docker Buildx para builds otimizados
       - name: Configurar Docker Buildx
@@ -74,7 +86,11 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
+      
+      # =========================================================================
+      # BUILD E PUSH PARA ECR
+      # =========================================================================
+      
       # Realiza deploy na EC2 (db, backend, frontend)
       - name: Deploy na instância EC2
         if: github.event_name == 'push'
@@ -106,7 +122,11 @@ jobs:
             --link contacts-backend-production:app \
             --env BACKEND_HOST=app \
             ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_FRONTEND_PROD }}:$IMAGE_TAG
-
+        
+      # =========================================================================
+      # VERIFICAÇÃO E LIMPEZA
+      # =========================================================================
+      
       # Verifica containers ativos e portas expostas
       - name: Verificar deploy
         run: |
