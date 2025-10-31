@@ -2,8 +2,8 @@
 # WORKFLOW: Deploy para Ambiente de Homologação
 # ==============================================================================
 # Este workflow valida PRs direcionados à branch `develop`.
-# Build e deploy usam imagens com tag `latest` (sem versionamento).
-# Observação: as etapas de build/deploy estão condicionadas a eventos `push`.
+# Build e deploy usam imagens com tag baseada no SHA do commit.
+# Observação: as etapas de build/deploy são executadas apenas após merge do PR.
 # Para acionar deploy em `push` para `develop`, veja comentário na seção `on:`.
 # Requisitos: runner self-hosted com Docker instalado e privilégios de execução.
 # ==============================================================================
@@ -14,26 +14,46 @@ on:
   pull_request:
     branches: [develop]
     types: [opened, synchronize, reopened, closed]
- # ------------------------------------------------------------------------------
+ # =========================================================================
   # OBS: Atualmente este workflow só é acionado em `pull_request` para `develop`.
   # Se desejar executar build e deploy em `push` para `develop`, adicione:
   # push:
   #  branches: [develop]
-  # -----------------------------------------------------------------------------
+  # =========================================================================
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  validate:
+    environment: app-personal-contact-develop
+    runs-on: [self-hosted, develop-runner]
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    steps:
+      - name: Limpar workspace
+        run: rm -rf ./* ./.* 2>/dev/null || true
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
   build-and-deploy:
     environment: app-personal-contact-develop
     runs-on: [self-hosted, develop-runner]
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
 
     steps:
     # =========================================================================
     # PREPARAÇÃO DO AMBIENTE
     # =========================================================================
-
-    # Limpa workspace para evitar resquícios de execuções anteriores
-    - name: Limpar workspace
-      run: rm -rf ./* ./.* 2>/dev/null || true
 
     # Faz checkout do código do repositório
     - name: Checkout do código
@@ -59,12 +79,10 @@ jobs:
 
     # Constrói imagem local do backend (tag latest)
     - name: Build Backend
-      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: docker build -t contacts-backend-homolog:${{ github.event.pull_request.head.sha }} ./backend
 
     # Constrói imagem local do frontend (tag latest)
     - name: Build Frontend
-      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         docker build -t contacts-frontend-homolog:${{ github.event.pull_request.head.sha }} \
           --build-arg REACT_APP_API_BASE_URL=http://contacts-backend-homolog:${{ secrets.BACKEND_PORT_DEV }}/api \
@@ -72,7 +90,6 @@ jobs:
 
     # Realiza deploy no ambiente de homologação
     - name: Deploy para homologação
-      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         docker stop contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
         docker rm contacts-frontend-homolog contacts-backend-homolog contacts-db-homolog || true
@@ -102,15 +119,10 @@ jobs:
 
     # Verifica containers ativos e portas expostas
     - name: Verificar deploy
-      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: |
         echo "📊 Status do deploy:"
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
     # Remove imagens não utilizadas para liberar espaço
     - name: Limpeza
-      if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
       run: docker image prune -f || true
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
